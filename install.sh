@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# 解决终端乱码问题
+export LANG=en_US.UTF-8
+export LC_ALL=C
+
 # GitHub 仓库地址
 REPO="Xeloan/flvx-tcppreconn"
 BRANCH="main"
@@ -64,7 +68,8 @@ run_docker_agent() {
   echo "?? 拉取最新 Agent 镜像..."
   # 转换为全小写适配 GHCR
   local repo_lower=$(echo "$REPO" | tr '[:upper:]' '[:lower:]')
-  docker pull ghcr.io/${repo_lower}-agent:main
+  # 优先拉取已配置的 Docker Hub 的分发镜像
+  docker pull bugnet/flvx-agent:main || docker pull ghcr.io/${repo_lower}-agent:main
 
   echo "?? 根据配置启动 Agent 容器..."
   docker run -d \
@@ -74,7 +79,15 @@ run_docker_agent() {
     --cap-add=NET_ADMIN \
     --cap-add=NET_RAW \
     -v "$INSTALL_DIR:/etc/flux_agent" \
-    ghcr.io/${repo_lower}-agent:main
+    bugnet/flvx-agent:main || \
+  docker run -d \
+    --name flux_agent \
+    --restart unless-stopped \
+    --network host \
+    --cap-add=NET_ADMIN \
+    --cap-add=NET_RAW \
+    -v "$INSTALL_DIR:/etc/flux_agent" \
+    ghcr.io/${repo_lower}-agent:main 
 
   echo "?? 容器状态: $(docker ps -f name=flux_agent --format '{{.Status}}')"
 }
@@ -139,6 +152,7 @@ uninstall_flux_agent() {
   docker rm -f flux_agent >/dev/null 2>&1 || true
   
   local repo_lower=$(echo "$REPO" | tr '[:upper:]' '[:lower:]')
+  docker rmi bugnet/flvx-agent:main >/dev/null 2>&1 || true
   docker rmi ghcr.io/${repo_lower}-agent:main >/dev/null 2>&1 || true
 
   cleanup_local_legacy
