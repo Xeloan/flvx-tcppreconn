@@ -63,8 +63,8 @@ cleanup_local_legacy() {
     rm -f /etc/systemd/system/flux_agent.service
     systemctl daemon-reload 2>/dev/null || true
   fi
-  [[ -f "$INSTALL_DIR/flux_agent" ]] && rm -f "$INSTALL_DIR/flux_agent"
-  [[ -f "$INSTALL_DIR/tcp_pool" ]] && rm -f "$INSTALL_DIR/tcp_pool"
+  rm -f "$INSTALL_DIR/flux_agent" 2>/dev/null || true
+  rm -f "$INSTALL_DIR/tcp_pool" 2>/dev/null || true
 }
 
 run_docker_agent() {
