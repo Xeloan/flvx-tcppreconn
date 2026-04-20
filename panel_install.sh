@@ -71,9 +71,12 @@ ask_proxy_config() {
   echo "==============================================="
 }
 
-# 获取 clone URL（支持镜像加速）
+# 获取 clone URL
+# NOTE: Always use the direct GitHub URL for git clone.
+# The download proxy (gcode.hostcentral.cc) only handles raw HTTP file downloads;
+# it does NOT support git smart-HTTP transport (GitHub disabled dumb-HTTP).
 get_clone_url() {
-  maybe_proxy_url "$REPO_URL"
+  echo "$REPO_URL"
 }
 
 # 检查 docker-compose 或 docker compose 命令
