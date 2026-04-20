@@ -177,8 +177,8 @@ clone_or_pull_repo() {
     # If the user previously installed from a different fork (e.g. Sagit-chu/flvx),
     # the old origin would still point there, and git fetch/reset would pull old code.
     local current_origin
-    current_origin=$(cd "$SRC_DIR" && git remote get-url origin 2>/dev/null || true)
-    if [[ "$current_origin" == *"${REPO}"* ]]; then
+    current_origin=$(git -C "$SRC_DIR" remote get-url origin 2>/dev/null || true)
+    if [[ "$current_origin" == "${REPO_URL}" || "$current_origin" == *"/${REPO}.git" || "$current_origin" == *"/${REPO}" ]]; then
       echo "📂 检测到已有源码，拉取最新代码..."
       cd "$SRC_DIR"
       git fetch --all
