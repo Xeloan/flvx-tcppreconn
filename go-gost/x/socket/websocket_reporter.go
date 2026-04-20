@@ -1411,81 +1411,6 @@ func (w *WebSocketReporter) handleUpgradeAgent(data interface{}) error {
 	}
 }
 
-// ensureGoInstalled downloads and installs Go if not already present.
-// This mirrors the ensure_go_installed function in install.sh.
-func ensureGoInstalled(proxyEnabled bool) error {
-	const goVersion = "1.23.0"
-	const goPath = "/usr/local/go/bin/go"
-	const maxDownloadSize = 200 * 1024 * 1024 // 200MB limit
-
-	goArch := runtime.GOARCH
-	tarName := fmt.Sprintf("go%s.linux-%s.tar.gz", goVersion, goArch)
-
-	var downloadURL string
-	if proxyEnabled {
-		downloadURL = fmt.Sprintf("https://golang.google.cn/dl/%s", tarName)
-	} else {
-		downloadURL = fmt.Sprintf("https://go.dev/dl/%s", tarName)
-	}
-
-	tmpTar := "/tmp/" + tarName
-	fmt.Printf("📦 下载 Go %s (%s)...\n", goVersion, downloadURL)
-
-	client := &http.Client{Timeout: 5 * time.Minute}
-	resp, err := client.Get(downloadURL)
-	if err != nil {
-		return fmt.Errorf("下载 Go 失败: %v", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("下载 Go 失败, HTTP状态码: %d", resp.StatusCode)
-	}
-
-	outFile, err := os.Create(tmpTar)
-	if err != nil {
-		return fmt.Errorf("创建临时文件失败: %v", err)
-	}
-	if _, err := io.Copy(outFile, io.LimitReader(resp.Body, maxDownloadSize)); err != nil {
-		outFile.Close()
-		os.Remove(tmpTar)
-		return fmt.Errorf("写入 Go 压缩包失败: %v", err)
-	}
-	outFile.Close()
-
-	// Extract to a temporary location first to avoid leaving the system
-	// without a working Go if extraction fails.
-	tmpGoDir := "/usr/local/go.new"
-	os.RemoveAll(tmpGoDir)
-	if err := os.MkdirAll(tmpGoDir, 0755); err != nil {
-		os.Remove(tmpTar)
-		return fmt.Errorf("创建临时目录失败: %v", err)
-	}
-	extractCmd := exec.Command("tar", "-C", tmpGoDir, "--strip-components=1", "-xzf", tmpTar)
-	if output, err := extractCmd.CombinedOutput(); err != nil {
-		os.Remove(tmpTar)
-		os.RemoveAll(tmpGoDir)
-		return fmt.Errorf("解压 Go 失败: %v\n%s", err, string(output))
-	}
-	os.Remove(tmpTar)
-
-	// Verify the new installation works before swapping
-	verifyCmd := exec.Command(tmpGoDir+"/bin/go", "version")
-	if output, err := verifyCmd.CombinedOutput(); err != nil {
-		os.RemoveAll(tmpGoDir)
-		return fmt.Errorf("Go 安装验证失败: %v\n%s", err, string(output))
-	} else {
-		fmt.Printf("✅ Go 安装完成: %s\n", strings.TrimSpace(string(output)))
-	}
-
-	// Swap: remove old and rename new
-	os.RemoveAll("/usr/local/go")
-	if err := os.Rename(tmpGoDir, "/usr/local/go"); err != nil {
-		return fmt.Errorf("替换 Go 目录失败: %v", err)
-	}
-
-	return nil
-}
-
 func (w *WebSocketReporter) handleSourceUpgrade(jsonData []byte) error {
 	var req struct {
 		Engine       string `json:"engine"`
@@ -1546,20 +1471,10 @@ func (w *WebSocketReporter) handleSourceUpgrade(jsonData []byte) error {
 	}
 	w.sendUpgradeProgress("downloading", 50, "源码已更新")
 
-	// Ensure Go is installed before building
-	goPath := "/usr/local/go/bin/go"
-	if _, statErr := os.Stat(goPath); statErr != nil {
-		w.sendUpgradeProgress("downloading", 55, "安装 Go 编译器...")
-		fmt.Println("📦 安装 Go 编译器...")
-		if installErr := ensureGoInstalled(req.ProxyEnabled); installErr != nil {
-			return fmt.Errorf("安装 Go 失败: %v", installErr)
-		}
-	}
-
 	// Build from source
 	w.sendUpgradeProgress("downloading", 60, "编译中...")
 	fmt.Println("🔨 编译 flux_agent...")
-	buildCmd := exec.Command(goPath, "build", "-ldflags=-s -w", "-o", tmpPath, ".")
+	buildCmd := exec.Command("go", "build", "-ldflags=-s -w", "-o", tmpPath, ".")
 	buildCmd.Dir = srcDir + "/go-gost"
 	buildCmd.Env = append(os.Environ(), "CGO_ENABLED=0", "PATH=/usr/local/go/bin:"+os.Getenv("PATH"))
 	buildOutput, err := buildCmd.CombinedOutput()
