@@ -410,6 +410,57 @@ stop_existing_containers() {
   echo "✅ 旧版容器已清理"
 }
 
+# 彻底清理旧版容器、镜像和构建缓存（安装模式专用，保留 volume 数据）
+purge_existing_installation() {
+  echo "🧨 彻底清理旧版安装..."
+  local working_dir=""
+
+  # 通过容器标签找到原始 compose 项目目录
+  if docker ps -a --format "{{.Names}}" 2>/dev/null | grep -q "^flux-panel-backend$"; then
+    working_dir=$(docker inspect flux-panel-backend --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' 2>/dev/null || true)
+  fi
+
+  # 优雅停止后端（等待 WAL 同步）
+  docker stop -t 30 flux-panel-backend 2>/dev/null || true
+  docker stop -t 10 vite-frontend 2>/dev/null || true
+
+  echo "⏳ 等待数据同步..."
+  sleep 5
+
+  # 通过 compose down 清理（不删 volume，删旧镜像）
+  if [[ -n "$working_dir" ]]; then
+    # 尝试多种常见 compose 文件名
+    for cf in "docker-compose.yml" "docker-compose-v4.yml" "docker-compose-v6.yml"; do
+      if [[ -f "${working_dir}/${cf}" ]]; then
+        echo "📂 清理旧版 compose 项目 (${working_dir}/${cf})..."
+        (cd "$working_dir" && $DOCKER_CMD -f "$cf" down --rmi all --remove-orphans 2>/dev/null) || true
+      fi
+    done
+  fi
+
+  # 确保容器已移除
+  docker rm -f flux-panel-backend vite-frontend flux-panel-postgres 2>/dev/null || true
+
+  # 按名称清理所有关联的旧 Docker 镜像
+  echo "🗑️ 清理旧版 Docker 镜像..."
+  while read -r img_id; do
+    docker rmi -f "$img_id" 2>/dev/null || true
+  done < <(docker images --format "{{.Repository}} {{.ID}}" 2>/dev/null | \
+    awk '$1 ~ /^(flux|flvx|vite-frontend|gost-panel)/ {print $2}' | sort -u)
+
+  # 清理 Docker 构建缓存
+  echo "🧹 清理 Docker 构建缓存..."
+  docker builder prune -af 2>/dev/null || true
+
+  # 删除旧的面板目录（强制全新克隆）
+  if [[ -d "$PANEL_DIR" ]]; then
+    echo "🗑️ 删除旧版面板目录 (${PANEL_DIR})..."
+    rm -rf "$PANEL_DIR"
+  fi
+
+  echo "✅ 旧版安装已彻底清理"
+}
+
 # 清理旧版安装文件
 cleanup_old_installation() {
   local env_file="$1"
@@ -557,13 +608,18 @@ install_panel() {
       get_config_params
     fi
 
-    # 停止并清理旧版
-    stop_existing_containers
+    # 彻底清理旧版（删除容器、镜像、构建缓存、旧目录）
+    purge_existing_installation
+
+    # 清理旧版安装文件
+    if [[ -n "$existing_env" ]]; then
+      cleanup_old_installation "$existing_env"
+    fi
   else
     get_config_params
   fi
 
-  # 克隆仓库
+  # 全新克隆仓库（purge 已删除旧目录，确保 clone_or_pull_repo 走 clone 路径）
   clone_or_pull_repo
 
   # 选择 compose 文件
@@ -589,18 +645,15 @@ POSTGRES_USER=$POSTGRES_USER
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 EOF
 
-  echo "🔨 构建并启动 docker 服务..."
+  echo "🔨 全新构建并启动 docker 服务（不使用缓存）..."
   if [[ "$DB_TYPE" == "postgres" ]]; then
-    $DOCKER_CMD -f "$COMPOSE_FILE" up -d --build postgres
+    $DOCKER_CMD -f "$COMPOSE_FILE" build --no-cache backend frontend
+    $DOCKER_CMD -f "$COMPOSE_FILE" up -d postgres
     wait_for_postgres_healthy
-    $DOCKER_CMD -f "$COMPOSE_FILE" up -d --build backend frontend
+    $DOCKER_CMD -f "$COMPOSE_FILE" up -d backend frontend
   else
-    $DOCKER_CMD -f "$COMPOSE_FILE" up -d --build backend frontend
-  fi
-
-  # 清理旧版文件
-  if [[ -n "$existing_env" ]]; then
-    cleanup_old_installation "$existing_env"
+    $DOCKER_CMD -f "$COMPOSE_FILE" build --no-cache backend frontend
+    $DOCKER_CMD -f "$COMPOSE_FILE" up -d backend frontend
   fi
 
   echo "🎉 部署完成"
