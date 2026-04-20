@@ -325,6 +325,124 @@ delete_self() {
   rm -f "$SCRIPT_PATH" && echo "✅ 脚本文件已删除" || echo "❌ 删除脚本文件失败"
 }
 
+# 查找已有面板安装的 .env 文件（原版或本 fork）
+find_existing_env() {
+  local working_dir
+
+  # 方法1: 通过已有容器标签获取 compose 项目目录
+  if docker ps -a --format "{{.Names}}" 2>/dev/null | grep -q "^flux-panel-backend$"; then
+    working_dir=$(docker inspect flux-panel-backend --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' 2>/dev/null || true)
+    if [[ -n "$working_dir" && -f "${working_dir}/.env" ]]; then
+      echo "${working_dir}/.env"
+      return 0
+    fi
+  fi
+
+  # 方法2: 检查本 fork 的默认安装目录
+  if [[ -f "${PANEL_DIR}/.env" ]] && grep -q "JWT_SECRET" "${PANEL_DIR}/.env" 2>/dev/null; then
+    echo "${PANEL_DIR}/.env"
+    return 0
+  fi
+
+  return 1
+}
+
+# 从已有 .env 导入全部配置
+import_existing_config() {
+  local env_file="$1"
+  echo "📋 从 ${env_file} 导入配置..."
+
+  JWT_SECRET=$(get_env_var "JWT_SECRET" "$env_file")
+  FRONTEND_PORT=$(get_env_var "FRONTEND_PORT" "$env_file")
+  BACKEND_PORT=$(get_env_var "BACKEND_PORT" "$env_file")
+  DB_TYPE=$(get_env_var "DB_TYPE" "$env_file")
+  DATABASE_URL=$(get_env_var "DATABASE_URL" "$env_file")
+  POSTGRES_DB=$(get_env_var "POSTGRES_DB" "$env_file")
+  POSTGRES_USER=$(get_env_var "POSTGRES_USER" "$env_file")
+  POSTGRES_PASSWORD=$(get_env_var "POSTGRES_PASSWORD" "$env_file")
+
+  # 使用默认值填充缺失的配置
+  JWT_SECRET=${JWT_SECRET:-$(generate_random)}
+  FRONTEND_PORT=${FRONTEND_PORT:-6366}
+  BACKEND_PORT=${BACKEND_PORT:-6365}
+  DB_TYPE=${DB_TYPE:-sqlite}
+  POSTGRES_DB=${POSTGRES_DB:-flux_panel}
+  POSTGRES_USER=${POSTGRES_USER:-flux_panel}
+  POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-$(generate_random)}
+
+  if [[ "$DB_TYPE" == "postgres" && -z "$DATABASE_URL" ]]; then
+    DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable"
+  fi
+
+  echo "  JWT_SECRET: ${JWT_SECRET:0:4}****"
+  echo "  前端端口: $FRONTEND_PORT"
+  echo "  后端端口: $BACKEND_PORT"
+  echo "  数据库类型: $DB_TYPE"
+  echo "✅ 配置导入完成"
+}
+
+# 停止并清理旧版容器（保留 volume 数据）
+stop_existing_containers() {
+  echo "🛑 停止旧版容器..."
+  local working_dir=""
+
+  # 通过容器标签找到原始 compose 项目目录
+  if docker ps -a --format "{{.Names}}" 2>/dev/null | grep -q "^flux-panel-backend$"; then
+    working_dir=$(docker inspect flux-panel-backend --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' 2>/dev/null || true)
+  fi
+
+  # 优雅停止后端（等待 WAL 同步）
+  docker stop -t 30 flux-panel-backend 2>/dev/null || true
+  docker stop -t 10 vite-frontend 2>/dev/null || true
+
+  echo "⏳ 等待数据同步..."
+  sleep 5
+
+  # 通过 compose down 清理（不删 volume，删旧镜像）
+  if [[ -n "$working_dir" && -f "${working_dir}/docker-compose.yml" ]]; then
+    echo "📂 清理旧版 compose 项目 (${working_dir})..."
+    (cd "$working_dir" && $DOCKER_CMD down --rmi all --remove-orphans 2>/dev/null) || true
+  fi
+
+  # 确保容器已移除
+  docker rm -f flux-panel-backend vite-frontend flux-panel-postgres 2>/dev/null || true
+
+  echo "✅ 旧版容器已清理"
+}
+
+# 清理旧版安装文件
+cleanup_old_installation() {
+  local env_file="$1"
+  local old_dir
+  old_dir=$(dirname "$env_file")
+
+  # 如果旧目录就是新目录，跳过
+  local resolved_old resolved_new
+  resolved_old=$(readlink -f "$old_dir" 2>/dev/null || echo "$old_dir")
+  resolved_new=$(readlink -f "$PANEL_DIR" 2>/dev/null || echo "$PANEL_DIR")
+  if [[ "$resolved_old" == "$resolved_new" ]]; then
+    return 0
+  fi
+
+  echo "🧹 清理旧版安装文件 (${old_dir})..."
+
+  # 备份旧 .env
+  if [[ -f "$env_file" ]]; then
+    if cp "$env_file" "${env_file}.bak.$(date +%Y%m%d%H%M%S)"; then
+      rm -f "$env_file"
+      echo "  📋 旧 .env 已备份并移除"
+    else
+      echo "  ⚠️ 备份失败，跳过 .env 清理"
+    fi
+  fi
+
+  # 删除旧 compose 文件
+  rm -f "${old_dir}/docker-compose.yml"
+  echo "  🗑️ 已删除旧版 docker-compose.yml"
+
+  echo "✅ 旧版文件清理完成"
+}
+
 # 获取用户输入的配置参数
 get_config_params() {
   echo "🔧 请输入配置参数："
@@ -392,7 +510,46 @@ install_panel() {
   ask_proxy_config
   check_docker
   check_git
-  get_config_params
+
+  # 检测已有面板安装
+  local existing_env=""
+  local has_existing_containers=false
+
+  if docker ps -a --format "{{.Names}}" 2>/dev/null | grep -q "^flux-panel-backend$"; then
+    has_existing_containers=true
+  fi
+
+  existing_env=$(find_existing_env 2>/dev/null) || existing_env=""
+
+  if [[ "$has_existing_containers" == true || -n "$existing_env" ]]; then
+    echo ""
+    echo "==============================================="
+    echo "  ⚠️  检测到已有面板安装"
+    if [[ -n "$existing_env" ]]; then
+      echo "  配置文件: $existing_env"
+    fi
+    echo "==============================================="
+
+    if [[ -n "$existing_env" ]]; then
+      read -p "是否保留原有配置和密钥？(Y/n): " keep_choice
+      case "$keep_choice" in
+        n|N)
+          get_config_params
+          ;;
+        *)
+          import_existing_config "$existing_env"
+          ;;
+      esac
+    else
+      echo "⚠️ 未找到可导入的配置文件，将使用新配置"
+      get_config_params
+    fi
+
+    # 停止并清理旧版
+    stop_existing_containers
+  else
+    get_config_params
+  fi
 
   # 克隆仓库
   clone_or_pull_repo
@@ -429,12 +586,21 @@ EOF
     $DOCKER_CMD -f "$COMPOSE_FILE" up -d --build backend frontend
   fi
 
+  # 清理旧版文件
+  if [[ -n "$existing_env" ]]; then
+    cleanup_old_installation "$existing_env"
+  fi
+
   echo "🎉 部署完成"
   echo "🌐 访问地址: http://服务器IP:$FRONTEND_PORT"
   echo "📖 部署完成后请阅读下使用文档，求求了啊，不要上去就是一顿操作"
   echo "📚 文档地址: https://tes.cc/guide.html"
-  echo "💡 默认管理员账号: admin_user / admin_user"
-  echo "⚠️  登录后请立即修改默认密码！"
+  if [[ -z "$existing_env" ]]; then
+    echo "💡 默认管理员账号: admin_user / admin_user"
+    echo "⚠️  登录后请立即修改默认密码！"
+  else
+    echo "ℹ️  已保留原有管理员账号和配置"
+  fi
   echo "📂 面板目录: $PANEL_DIR"
 }
 
