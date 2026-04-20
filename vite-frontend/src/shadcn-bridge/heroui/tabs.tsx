@@ -32,6 +32,18 @@ export function Tab(_props: TabProps) {
 
 Tab.displayName = "HeroTab";
 
+function cleanReactKey(key: React.Key | null | undefined, fallback: string) {
+  if (key == null) return fallback;
+  const str = String(key);
+  if (str.startsWith(".$")) {
+    return str.substring(2);
+  }
+  if (str.startsWith(".")) {
+    return str.substring(1);
+  }
+  return str;
+}
+
 function parseTabs(children: React.ReactNode) {
   const tabs: TabDefinition[] = [];
 
@@ -40,7 +52,7 @@ function parseTabs(children: React.ReactNode) {
       return;
     }
 
-    const key = child.key ? String(child.key) : `tab-${index}`;
+    const key = cleanReactKey(child.key, `tab-${index}`);
     const props = child.props as TabProps;
 
     tabs.push({

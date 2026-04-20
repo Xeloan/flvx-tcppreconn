@@ -69,6 +69,18 @@ function toSet(value?: SelectionValue) {
   return new Set(Array.from(value).map((item) => String(item)));
 }
 
+function cleanReactKey(key: React.Key | null | undefined, fallback: string) {
+  if (key == null) return fallback;
+  const str = String(key);
+  if (str.startsWith(".$")) {
+    return str.substring(2);
+  }
+  if (str.startsWith(".")) {
+    return str.substring(1);
+  }
+  return str;
+}
+
 function flattenOptionsFromNode(node: React.ReactNode, options: OptionItem[]) {
   React.Children.forEach(node, (child, index) => {
     if (child === null || child === undefined || typeof child === "boolean") {
@@ -87,7 +99,7 @@ function flattenOptionsFromNode(node: React.ReactNode, options: OptionItem[]) {
       }
 
       if (child.type === SelectItem) {
-        const key = child.key ? String(child.key) : String(index);
+        const key = cleanReactKey(child.key, String(index));
         const props = child.props as SelectItemProps;
 
         options.push({
@@ -112,7 +124,7 @@ function getOptions<T>(
       const rendered = children(item);
 
       if (React.isValidElement(rendered) && rendered.type === SelectItem) {
-        const key = rendered.key ? String(rendered.key) : String(index);
+        const key = cleanReactKey(rendered.key, String(index));
         const props = rendered.props as SelectItemProps;
 
         options.push({
