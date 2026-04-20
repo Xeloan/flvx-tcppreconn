@@ -157,6 +157,16 @@ export function ModalContent({
         className,
       )}
       showCloseButton={false}
+      onInteractOutside={(e) => {
+        // Prevent dialog from closing when clicking inside custom portals like heroui/select
+        if (e.target instanceof Element && e.target.closest('[role="listbox"]')) {
+          e.preventDefault();
+        }
+        // safely call props if provided
+        if ("onInteractOutside" in props) {
+          (props as any).onInteractOutside?.(e);
+        }
+      }}
       {...props}
     >
       {renderedChildren}

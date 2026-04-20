@@ -389,11 +389,18 @@ export function Select<T>({
       <div
         ref={listboxRef}
         className={cn(
-          "fixed z-[60] space-y-1 overflow-y-auto rounded-md border border-divider bg-background p-2 shadow-md",
+          "fixed z-[60] space-y-1 overflow-y-auto rounded-md border border-divider bg-background p-2 shadow-md pointer-events-auto",
         )}
         id={`${generatedId}-listbox`}
         role="listbox"
         style={dropdownPosition}
+        onClick={(e) => {
+          // Stop react click bubbling up to the form
+          e.stopPropagation();
+        }}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+        }}
       >
         {options.length === 0 ? (
           <div
