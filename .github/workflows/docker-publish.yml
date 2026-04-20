@@ -51,3 +51,17 @@ jobs:
           push: true
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
+
+      - name: Extract metadata (tags, labels) for Agent
+        id: meta-agent
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}-agent
+
+      - name: Build and push Agent
+        uses: docker/build-push-action@v5
+        with:
+          context: ./go-gost
+          push: true
+          tags: ${{ steps.meta-agent.outputs.tags }}
+          labels: ${{ steps.meta-agent.outputs.labels }}
