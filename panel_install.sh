@@ -443,11 +443,10 @@ purge_existing_installation() {
 
   # 按名称清理所有关联的旧 Docker 镜像
   echo "🗑️ 清理旧版 Docker 镜像..."
-  docker images --format "{{.Repository}}:{{.Tag}} {{.ID}}" 2>/dev/null | \
-    grep -iE "flux|flvx|vite-frontend|gost-panel" | \
-    awk '{print $2}' | sort -u | while read -r img_id; do
-      docker rmi -f "$img_id" 2>/dev/null || true
-    done
+  while read -r img_id; do
+    docker rmi -f "$img_id" 2>/dev/null || true
+  done < <(docker images --format "{{.Repository}} {{.ID}}" 2>/dev/null | \
+    awk '$1 ~ /^(flux|flvx|vite-frontend|gost-panel)/ {print $2}' | sort -u)
 
   # 清理 Docker 构建缓存
   echo "🧹 清理 Docker 构建缓存..."
