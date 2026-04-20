@@ -379,9 +379,14 @@ func (h *Handler) onNodeOnline(nodeID int64) {
 		}
 	}
 
-	if !h.consumeNodePendingUpgradeRedeploy(nodeID) {
-		return
-	}
+	// Always redeploy active tunnels/forwards when a node comes online.
+	// Previously this was gated by consumeNodePendingUpgradeRedeploy(), which
+	// only returned true after a panel-initiated upgrade (UpgradeAgent command).
+	// When users manually reinstall the node agent via install.sh, the pending
+	// flag was never set, so the node would appear online but have no service
+	// configs — tunnels wouldn't forward traffic until manually re-saved.
+	// Consume the flag if present (to clear it) but always redeploy.
+	h.consumeNodePendingUpgradeRedeploy(nodeID)
 	h.redeployNodeRuntimeAfterUpgrade(nodeID)
 }
 
