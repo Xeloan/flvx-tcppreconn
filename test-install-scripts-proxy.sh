@@ -92,9 +92,9 @@ test_install_script_clone_url_with_proxy() (
   actual=$(get_clone_url)
 
   assert_equals \
-    "https://mirror.example.com/https://github.com/${REPO}.git" \
+    "https://github.com/${REPO}.git" \
     "$actual" \
-    "install.sh should proxy the clone URL"
+    "install.sh should always return direct clone URL (proxy does not support git)"
 )
 
 test_update_flux_agent_skips_proxy_prompt_when_not_installed() (
@@ -176,9 +176,9 @@ test_panel_install_script_clone_url_with_proxy() (
   actual=$(get_clone_url)
 
   assert_equals \
-    "https://mirror.example.com/https://github.com/${REPO}.git" \
+    "https://github.com/${REPO}.git" \
     "$actual" \
-    "panel_install.sh should proxy the clone URL"
+    "panel_install.sh should always return direct clone URL (proxy does not support git)"
 )
 
 test_panel_install_script_accepts_proxy_url_env_without_prompt() (
