@@ -648,14 +648,13 @@ POSTGRES_USER=$POSTGRES_USER
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 EOF
 
-  echo "🔨 全新构建并启动 docker 服务（不使用缓存）..."
+  echo "🔨 拉取最新镜像并启动 docker 服务..."
+  $DOCKER_CMD -f "$COMPOSE_FILE" pull backend frontend
   if [[ "$DB_TYPE" == "postgres" ]]; then
-    $DOCKER_CMD -f "$COMPOSE_FILE" build --no-cache backend frontend
     $DOCKER_CMD -f "$COMPOSE_FILE" up -d postgres
     wait_for_postgres_healthy
     $DOCKER_CMD -f "$COMPOSE_FILE" up -d backend frontend
   else
-    $DOCKER_CMD -f "$COMPOSE_FILE" build --no-cache backend frontend
     $DOCKER_CMD -f "$COMPOSE_FILE" up -d backend frontend
   fi
 
@@ -716,14 +715,13 @@ update_panel() {
   # 然后再完全停止
   $DOCKER_CMD -f "$COMPOSE_FILE" down
 
-  echo "🔨 重新构建镜像..."
+  echo "🔨 拉取最新镜像..."
+  $DOCKER_CMD -f "$COMPOSE_FILE" pull backend frontend
   if [[ "$CURRENT_DB_TYPE" == "postgres" ]]; then
-    $DOCKER_CMD -f "$COMPOSE_FILE" build backend frontend
     $DOCKER_CMD -f "$COMPOSE_FILE" up -d postgres
     wait_for_postgres_healthy
     $DOCKER_CMD -f "$COMPOSE_FILE" up -d backend frontend
   else
-    $DOCKER_CMD -f "$COMPOSE_FILE" build backend frontend
     $DOCKER_CMD -f "$COMPOSE_FILE" up -d backend frontend
   fi
 
