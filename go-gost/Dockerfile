@@ -4,6 +4,7 @@ WORKDIR /src
 RUN apt-get update && apt-get install -y gcc
 
 COPY go.mod go.sum ./
+COPY x ./x
 RUN go mod download
 
 COPY . .
