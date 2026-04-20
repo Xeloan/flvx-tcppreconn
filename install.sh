@@ -173,10 +173,22 @@ clone_or_pull_repo() {
   clone_url=$(get_clone_url)
 
   if [[ -d "$SRC_DIR/.git" ]]; then
-    echo "📂 检测到已有源码，拉取最新代码..."
-    cd "$SRC_DIR"
-    git fetch --all
-    git reset --hard "origin/${BRANCH}"
+    # Verify the existing repo's origin matches the expected URL.
+    # If the user previously installed from a different fork (e.g. Sagit-chu/flvx),
+    # the old origin would still point there, and git fetch/reset would pull old code.
+    local current_origin
+    current_origin=$(git -C "$SRC_DIR" remote get-url origin 2>/dev/null || true)
+    if [[ "$current_origin" == "${REPO_URL}" || "$current_origin" == *"/${REPO}.git" || "$current_origin" == *"/${REPO}" ]]; then
+      echo "📂 检测到已有源码，拉取最新代码..."
+      cd "$SRC_DIR"
+      git fetch --all
+      git reset --hard "origin/${BRANCH}"
+    else
+      echo "⚠️ 检测到已有源码来自其他源 (${current_origin})，将重新克隆..."
+      rm -rf "$SRC_DIR"
+      git clone --depth 1 -b "$BRANCH" "$clone_url" "$SRC_DIR"
+      cd "$SRC_DIR"
+    fi
   else
     echo "📥 克隆仓库到 ${SRC_DIR}..."
     rm -rf "$SRC_DIR"
