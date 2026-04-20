@@ -954,7 +954,7 @@ export default function NodePage() {
   };
 
   const openInstallSelector = (node: Node) => {
-    // Directly generate stable channel install command (no channel selector needed)
+    // Only stable channel is supported — skip channel selector and generate command directly
     handleCopyInstallCommand(node, "stable");
   };
 
