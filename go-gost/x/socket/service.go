@@ -146,8 +146,9 @@ func preconnGroupPaused(serviceConfigs []*config.ServiceConfig) bool {
 }
 
 func copyServiceConfigs(serviceConfigs []*config.ServiceConfig) []*config.ServiceConfig {
-	// A shallow slice copy is enough here: we only need to preserve the original
-	// request membership for config persistence while reusing the same configs.
+	// A shallow slice copy is enough here: handlePreconnServices may replace the
+	// request slice with only non-preconn configs for gost registration, but we
+	// still need the full original config set for config.OnUpdate persistence.
 	return append([]*config.ServiceConfig(nil), serviceConfigs...)
 }
 

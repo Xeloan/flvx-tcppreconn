@@ -20,8 +20,8 @@ func TestCreateServicesPersistsManagedPreconnConfigs(t *testing.T) {
 	mgr.StopAll()
 	defer mgr.StopAll()
 
-	restorePath := prependStubTCPPoolToPath(t)
-	defer restorePath()
+	cleanupPath := prependStubTCPPoolToPath(t)
+	defer cleanupPath()
 
 	req := createServicesRequest{
 		Data: []*config.ServiceConfig{
@@ -60,8 +60,8 @@ func TestUpdateServicesPersistsManagedPreconnConfigs(t *testing.T) {
 	mgr.StopAll()
 	defer mgr.StopAll()
 
-	restorePath := prependStubTCPPoolToPath(t)
-	defer restorePath()
+	cleanupPath := prependStubTCPPoolToPath(t)
+	defer cleanupPath()
 
 	if err := updateServices(updateServicesRequest{
 		Data: []*config.ServiceConfig{
