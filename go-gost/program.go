@@ -67,8 +67,6 @@ func (p *program) Start() error {
 		return err
 	}
 
-	socket.InitPreconnFromConfig(cfg)
-
 	if err := p.run(cfg); err != nil {
 		return err
 	}

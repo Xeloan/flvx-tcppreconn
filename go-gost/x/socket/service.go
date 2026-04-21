@@ -79,51 +79,6 @@ func upsertServiceConfigs(c *config.Config, cfgs []*config.ServiceConfig) {
 	}
 }
 
-// InitPreconnFromConfig scans cfg.Services for preconn-managed services and
-// handles them correctly on agent startup:
-//   - Unregisters them from the gost service registry (loader.Load registered
-//     them as plain TCP/UDP forwards, which is wrong for preconn services).
-//   - Starts tcp_pool for each non-paused preconn forward.
-//
-// This must be called after loader.Load and before p.run so that preconn
-// services are never started as regular gost forwards, and the PreconnManager
-// is populated immediately so that rule-toggle (PauseService/ResumeService)
-// works even before the panel sends its first UpdateService sync.
-func InitPreconnFromConfig(cfg *config.Config) {
-	if cfg == nil {
-		return
-	}
-	mgr := GetPreconnManager()
-	handledBases := make(map[string]bool)
-	for _, svcCfg := range cfg.Services {
-		if !isPreconnService(svcCfg) {
-			continue
-		}
-		// Unregister from the gost registry so p.run doesn't serve it as a
-		// plain forward (loader.Load added it there unconditionally).
-		registry.ServiceRegistry().Unregister(svcCfg.Name)
-
-		baseName := ExtractPreconnBaseName(svcCfg.Name)
-		if handledBases[baseName] {
-			continue
-		}
-		handledBases[baseName] = true
-
-		if isServicePaused(svcCfg) {
-			fmt.Printf("[preconn] %s is paused, skipping startup\n", baseName)
-			continue
-		}
-		target := extractFirstForwarderTarget(svcCfg)
-		if target == "" {
-			fmt.Printf("[preconn] %s has no forwarder target, skipping startup\n", baseName)
-			continue
-		}
-		if err := mgr.StartPreconn(baseName, svcCfg.Addr, target); err != nil {
-			fmt.Printf("[preconn] failed to start tcp_pool for %s at startup: %v\n", baseName, err)
-		}
-	}
-}
-
 // isServicePaused reports whether the service config carries a "paused" metadata flag.
 func isServicePaused(cfg *config.ServiceConfig) bool {
 	if cfg == nil || cfg.Metadata == nil {
