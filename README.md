@@ -24,4 +24,4 @@ curl -L https://raw.githubusercontent.com/Xeloan/flvx-tcppreconn/main/install.sh
 
 ## 免责声明
 
-本项目为纯瞎搞，把你鸡搞坏了别怪我
+本项目为纯瞎搞，但是经过了非常多的测试。基本稳定。
