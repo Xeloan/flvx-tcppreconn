@@ -548,6 +548,8 @@ const normalizeForwardItems = (items: Forward[]): Forward[] => {
   return items.map((forward) => ({
     ...forward,
     serviceRunning: forward.status === 1,
+    tcpPreconn:
+      typeof forward.tcpPreconn === "number" ? forward.tcpPreconn : 0,
   }));
 };
 
@@ -576,8 +578,6 @@ const mapForwardApiItems = (items: ForwardApiItem[]): Forward[] => {
         ? forward.speedId
         : undefined,
     serviceRunning: forward.status === 1,
-    tcpPreconn:
-      typeof forward.tcpPreconn === "number" ? forward.tcpPreconn : 0,
   }));
 };
 
@@ -3722,7 +3722,7 @@ export default function ForwardPage() {
     return (
       <Card
         key={forward.id}
-        className="group h-full flex flex-col overflow-hidden bg-white/20 dark:bg-zinc-900/20 backdrop-blur-3xl border border-white/80 dark:border-white/10 shadow-[0_15px_35px_rgba(0,0,0,0.1)]"
+        className="group h-full flex flex-col shadow-sm border border-divider hover:shadow-md transition-shadow duration-200 overflow-hidden"
       >
         <CardHeader className="pb-2 md:pb-2">
           <div className="flex justify-between items-start w-full">
@@ -3779,7 +3779,7 @@ export default function ForwardPage() {
             {/* 地址信息 */}
             <div className="space-y-1">
               <button
-                className={`cursor-pointer px-2 py-1 bg-white/20 dark:bg-black/20 backdrop-blur-md rounded border border-default-200 dark:border-default-300 transition-colors duration-200 ${
+                className={`cursor-pointer px-2 py-1 bg-default-50 dark:bg-default-100/50 rounded border border-default-200 dark:border-default-300 transition-colors duration-200 ${
                   hasMultipleAddresses(forward.inIp)
                     ? "hover:bg-default-100 dark:hover:bg-default-200/50"
                     : ""
@@ -3815,11 +3815,12 @@ export default function ForwardPage() {
                       />
                     </svg>
                   )}
+
                 </div>
               </button>
 
               <button
-                className={`cursor-pointer px-2 py-1 bg-white/20 dark:bg-black/20 backdrop-blur-md rounded border border-default-200 dark:border-default-300 transition-colors duration-200 ${
+                className={`cursor-pointer px-2 py-1 bg-default-50 dark:bg-default-100/50 rounded border border-default-200 dark:border-default-300 transition-colors duration-200 ${
                   hasMultipleAddresses(forward.remoteAddr)
                     ? "hover:bg-default-100 dark:hover:bg-default-200/50"
                     : ""
@@ -3999,7 +4000,7 @@ export default function ForwardPage() {
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between mb-6 gap-3">
         <div className="flex-1 flex items-center gap-2">
           <Button
-            className="bg-default/10 dark:bg-default/20 backdrop-blur-md text-default-700 dark:text-default-300 font-semibold hover:bg-default/20 dark:hover:bg-default/30"
+            color={activeFilterCount > 0 ? "primary" : "default"}
             startContent={
               <svg
                 className="w-4 h-4"
@@ -4015,6 +4016,7 @@ export default function ForwardPage() {
                 />
               </svg>
             }
+            variant={activeFilterCount > 0 ? "flat" : "bordered"}
             onPress={() => setIsSearchModalOpen(true)}
           >
             高级筛选 {activeFilterCount > 0 ? `(${activeFilterCount})` : ""}
@@ -4209,7 +4211,7 @@ export default function ForwardPage() {
                   {sortedForwards.length} 条规则
                 </span>
               </div>
-              <Card className="overflow-hidden rounded-2xl border border-white/80 dark:border-white/10 bg-white/20 dark:bg-zinc-900/20 backdrop-blur-3xl shadow-[0_15px_35px_rgba(0,0,0,0.1)]">
+              <div className="overflow-hidden rounded-xl border border-divider bg-content1 shadow-md">
                 <DndContext
                   collisionDetection={pointerWithin}
                   sensors={sensors}
@@ -4222,11 +4224,9 @@ export default function ForwardPage() {
                     <Table
                       aria-label="全部规则列表"
                       classNames={{
-                        wrapper:
-                          "bg-transparent p-0 shadow-none border-none overflow-hidden rounded-[24px]",
-                        th: "bg-default-100/50 text-default-600 font-semibold text-sm border-b border-divider py-3 uppercase tracking-wider first:rounded-tl-[24px] last:rounded-tr-[24px]",
+                        th: "bg-default-100/50 text-default-600 font-semibold text-sm border-b border-divider py-3 uppercase tracking-wider",
                         td: "py-3 border-b border-divider/50 group-data-[last=true]:border-b-0",
-                        tr: "hover:bg-white/10 dark:hover:bg-white/5 transition-colors group",
+                        tr: "hover:bg-default-50/50 transition-colors",
                       }}
                     >
                       <TableHeader>
@@ -4287,10 +4287,10 @@ export default function ForwardPage() {
                     </Table>
                   </SortableContext>
                 </DndContext>
-              </Card>
+              </div>
             </>
           ) : (
-            <Card className="bg-white/20 dark:bg-zinc-900/20 backdrop-blur-3xl border border-white/80 dark:border-white/10 shadow-[0_15px_35px_rgba(0,0,0,0.1)]">
+            <Card className="shadow-sm border border-gray-200 dark:border-gray-700 bg-default-50/50">
               <CardBody className="text-center py-20 flex flex-col items-center justify-center min-h-[240px]">
                 <h3 className="text-xl font-medium text-foreground tracking-tight mb-2">
                   暂无规则配置
@@ -4336,7 +4336,7 @@ export default function ForwardPage() {
             </DndContext>
           </>
         ) : (
-          <Card className="bg-white/20 dark:bg-zinc-900/20 backdrop-blur-3xl border border-white/80 dark:border-white/10 shadow-[0_15px_35px_rgba(0,0,0,0.1)]">
+          <Card className="shadow-sm border border-gray-200 dark:border-gray-700 bg-default-50/50">
             <CardBody className="text-center py-20 flex flex-col items-center justify-center min-h-[240px]">
               <h3 className="text-xl font-medium text-foreground tracking-tight mb-2">
                 暂无规则配置
@@ -4361,9 +4361,9 @@ export default function ForwardPage() {
               return (
                 <div
                   key={`grouped-table-${group.userId}-${group.userName}`}
-                  className="overflow-hidden rounded-2xl border border-white/80 dark:border-white/10 bg-white/20 dark:bg-zinc-900/20 backdrop-blur-3xl shadow-[0_15px_35px_rgba(0,0,0,0.1)]"
+                  className="overflow-hidden rounded-xl border border-divider bg-content1 shadow-md"
                 >
-                  <div className="flex items-center justify-between border-b border-white/20 dark:border-white/10 bg-white/20 dark:bg-black/20 backdrop-blur-3xl px-5 py-4">
+                  <div className="flex items-center justify-between border-b border-divider bg-default-100/40 px-4 py-3">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-foreground">
                         {group.userName}
@@ -4449,10 +4449,10 @@ export default function ForwardPage() {
                               collapsed={collapsed}
                               countClassName="text-xs text-default-600"
                               groupUserId={group.userId}
-                              headerClassName="flex items-center justify-between border-b border-white/20 dark:border-white/10 bg-white/20 dark:bg-black/20 backdrop-blur-3xl px-4 py-2.5"
+                              headerClassName="flex items-center justify-between border-b border-divider bg-default-100/60 px-4 py-2.5"
                               titleClassName="truncate text-sm font-semibold text-default-700"
                               tunnel={tunnel}
-                              wrapperClassName="overflow-hidden rounded-2xl border border-white/80 dark:border-white/10 bg-white/20 dark:bg-zinc-900/20 backdrop-blur-3xl shadow-[0_15px_35px_rgba(0,0,0,0.1)]"
+                              wrapperClassName="overflow-hidden rounded-lg border border-divider bg-default-50/60"
                               onToggleCollapsed={() =>
                                 toggleTunnelGroupCollapsed(
                                   group.userId,
@@ -4473,11 +4473,9 @@ export default function ForwardPage() {
                                     aria-label={`${group.userName}-${tunnel.tunnelName}规则列表`}
                                     className={`table-fixed ${FORWARD_GROUPED_TABLE_MIN_WIDTH_CLASS}`}
                                     classNames={{
-                                      wrapper:
-                                        "bg-transparent p-0 shadow-none border-none overflow-hidden rounded-2xl",
-                                      th: "bg-transparent text-default-600 font-semibold text-sm border-b border-white/20 dark:border-white/10 py-3 uppercase tracking-wider first:rounded-tl-[24px] last:rounded-tr-[24px]",
+                                      th: "bg-default-100/50 text-default-600 font-semibold text-sm border-b border-divider py-3 uppercase tracking-wider",
                                       td: "py-3 border-b border-divider/50 group-data-[last=true]:border-b-0",
-                                      tr: "hover:bg-white/40 dark:hover:bg-white/10 transition-colors",
+                                      tr: "hover:bg-default-50/50 transition-colors",
                                     }}
                                   >
                                     <TableHeader>
@@ -4597,7 +4595,7 @@ export default function ForwardPage() {
             })}
           </div>
         ) : (
-          <Card className="bg-white/20 dark:bg-zinc-900/20 backdrop-blur-3xl border border-white/80 dark:border-white/10 shadow-[0_15px_35px_rgba(0,0,0,0.1)]">
+          <Card className="shadow-sm border border-gray-200 dark:border-gray-700 bg-default-50/50">
             <CardBody className="text-center py-20 flex flex-col items-center justify-center min-h-[240px]">
               <h3 className="text-xl font-medium text-foreground tracking-tight mb-2">
                 暂无规则配置
@@ -4673,10 +4671,10 @@ export default function ForwardPage() {
                             collapsed={collapsed}
                             countClassName="text-xs text-default-600"
                             groupUserId={group.userId}
-                            headerClassName="flex items-center justify-between rounded-lg bg-white/10 dark:bg-black/10 backdrop-blur-md border border-white/20 dark:border-white/10 px-3 py-2"
+                            headerClassName="flex items-center justify-between rounded-lg bg-default-100/60 px-3 py-2"
                             titleClassName="truncate text-sm font-semibold text-default-700"
                             tunnel={tunnel}
-                            wrapperClassName="rounded-xl border border-divider bg-white/5 dark:bg-black/5 space-y-3"
+                            wrapperClassName="rounded-xl border border-divider bg-default-50/60 space-y-3"
                             onToggleCollapsed={() =>
                               toggleTunnelGroupCollapsed(
                                 group.userId,
@@ -4718,7 +4716,7 @@ export default function ForwardPage() {
           })}
         </div>
       ) : (
-        <Card>
+        <Card className="shadow-sm border border-gray-200 dark:border-gray-700 bg-default-50/50">
           <CardBody className="text-center py-20 flex flex-col items-center justify-center min-h-[240px]">
             <h3 className="text-xl font-medium text-foreground tracking-tight mb-2">
               暂无规则配置
@@ -4932,8 +4930,8 @@ export default function ForwardPage() {
                       <div className="flex flex-col gap-0.5">
                         <span className="text-sm font-medium">TCP 预连接</span>
                         <span className="text-xs text-default-400">
-                          启用后使用零拷贝预连接池转发，降低首包延迟（仅限
-                          Linux 节点）
+                          启用后使用零拷贝预连接池转发，降低首包延迟（仅限 Linux
+                          节点）
                         </span>
                       </div>
                       <Switch
@@ -5469,7 +5467,7 @@ export default function ForwardPage() {
                   </div>
                 )}
               </ModalHeader>
-              <ModalBody className="bg-transparent">
+              <ModalBody className="bg-content1">
                 {diagnosisResult ? (
                   <div className="space-y-4">
                     {diagnosisLoading && (
@@ -5993,7 +5991,7 @@ export default function ForwardPage() {
                   </div>
                 )}
               </ModalBody>
-              <ModalFooter className="bg-transparent border-t border-white/20 dark:border-white/10">
+              <ModalFooter className="bg-content1 border-t border-divider">
                 <Button variant="light" onPress={onClose}>
                   关闭
                 </Button>
