@@ -1,0 +1,4 @@
+- [x] Confirm the TCP preconnection toggle failure is caused by agent-side preconn service configs not being persisted on create/update
+- [ ] Persist TCP preconnection-managed service configs during agent create/update even when gost runtime registration is skipped
+- [ ] Add regression tests covering TCP preconnection config persistence and existing toggle behavior
+- [ ] Run targeted backend and agent tests to validate the fix

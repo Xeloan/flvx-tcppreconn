@@ -151,12 +151,20 @@ func createServices(req createServicesRequest) error {
 		return errors.New("services list cannot be empty")
 	}
 
+	allConfigs := append([]*config.ServiceConfig(nil), req.Data...)
+
 	// Check for preconn services — delegate to PreconnManager instead of gost
 	preconnHandled, remaining, err := handlePreconnServices(req.Data, true)
 	if err != nil {
 		return err
 	}
 	if preconnHandled && len(remaining) == 0 {
+		config.OnUpdate(func(c *config.Config) error {
+			for _, serviceConfig := range allConfigs {
+				c.Services = append(c.Services, serviceConfig)
+			}
+			return nil
+		})
 		return nil
 	}
 	req.Data = remaining
@@ -216,8 +224,8 @@ func createServices(req createServicesRequest) error {
 
 	// 第四阶段：更新配置
 	config.OnUpdate(func(c *config.Config) error {
-		for _, ps := range parsedServices {
-			c.Services = append(c.Services, ps.config)
+		for _, serviceConfig := range allConfigs {
+			c.Services = append(c.Services, serviceConfig)
 		}
 		return nil
 	})
@@ -230,6 +238,8 @@ func updateServices(req updateServicesRequest) error {
 	if len(req.Data) == 0 {
 		return errors.New("services list cannot be empty")
 	}
+
+	allConfigs := append([]*config.ServiceConfig(nil), req.Data...)
 
 	// 第一阶段：验证所有服务名称有效性
 	for i := range req.Data {
@@ -247,6 +257,22 @@ func updateServices(req updateServicesRequest) error {
 		return err
 	}
 	if preconnHandled && len(remaining) == 0 {
+		config.OnUpdate(func(c *config.Config) error {
+			for _, cfg := range allConfigs {
+				found := false
+				for j := range c.Services {
+					if c.Services[j].Name == cfg.Name {
+						c.Services[j] = cfg
+						found = true
+						break
+					}
+				}
+				if !found {
+					c.Services = append(c.Services, cfg)
+				}
+			}
+			return nil
+		})
 		return nil
 	}
 	req.Data = remaining
@@ -299,7 +325,7 @@ func updateServices(req updateServicesRequest) error {
 
 	// 第三阶段：更新配置
 	config.OnUpdate(func(c *config.Config) error {
-		for _, cfg := range req.Data {
+		for _, cfg := range allConfigs {
 			found := false
 			for j := range c.Services {
 				if c.Services[j].Name == cfg.Name {
