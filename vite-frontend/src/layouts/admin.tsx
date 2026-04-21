@@ -506,7 +506,6 @@ export default function AdminLayout({
               onPress={toggleCollapse}
             >
               {isCollapsed ? (
-                // 向右扩展的提示
                 <svg
                   className="w-5 h-5"
                   fill="none"
@@ -521,7 +520,6 @@ export default function AdminLayout({
                   />
                 </svg>
               ) : (
-                // 向左收起的提示
                 <svg
                   className="w-5 h-5"
                   fill="none"

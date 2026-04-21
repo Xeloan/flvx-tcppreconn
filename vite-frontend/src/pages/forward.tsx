@@ -577,6 +577,7 @@ const mapForwardApiItems = (items: ForwardApiItem[]): Forward[] => {
         ? forward.speedId
         : undefined,
     serviceRunning: forward.status === 1,
+    tcpPreconn: typeof forward.tcpPreconn === "number" ? forward.tcpPreconn : 0,
   }));
 };
 

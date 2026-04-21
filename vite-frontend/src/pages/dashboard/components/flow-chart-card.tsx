@@ -51,7 +51,10 @@ export const FlowChartCard = ({
         ) : (
           <div className="h-64 lg:h-80 w-full">
             <ResponsiveContainer height="100%" width="100%">
-              <LineChart data={chartData}>
+              <LineChart
+                data={chartData}
+                margin={{ top: 20, right: 0, left: -20, bottom: 0 }}
+              >
                 <CartesianGrid className="opacity-30" strokeDasharray="3 3" />
                 <XAxis
                   axisLine={{ stroke: "#e5e7eb", strokeWidth: 1 }}
