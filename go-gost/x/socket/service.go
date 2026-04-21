@@ -578,10 +578,9 @@ func pauseDashServices(req pauseServicesRequest) error {
 		if err := CallDashAPI("DELETE", "/config/services/"+name, nil); err != nil {
 			return err
 		}
-		registry.ServiceRegistry().Unregister(name)
 	}
 
-	return config.OnUpdate(func(c *config.Config) error {
+	if err := config.OnUpdate(func(c *config.Config) error {
 		for _, serviceName := range req.Services {
 			name := strings.TrimSpace(serviceName)
 			for i := range c.Services {
@@ -595,7 +594,15 @@ func pauseDashServices(req pauseServicesRequest) error {
 			}
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+
+	for _, serviceName := range req.Services {
+		registry.ServiceRegistry().Unregister(strings.TrimSpace(serviceName))
+	}
+
+	return nil
 }
 
 func resumeDashServices(req resumeServicesRequest) error {
@@ -630,8 +637,11 @@ func resumeDashServices(req resumeServicesRequest) error {
 
 		payload := sanitizeForDash(serviceConfig)
 		if err := CallDashAPI("POST", "/config/services", payload); err != nil {
-			if err := CallDashAPI("PUT", "/config/services/"+name, payload); err != nil {
+			if !isDashAlreadyExistsError(err) {
 				return err
+			}
+			if err := CallDashAPI("PUT", "/config/services/"+name, payload); err != nil {
+				return fmt.Errorf("dash resume update %s failed after create conflict: %w", name, err)
 			}
 		}
 	}
@@ -653,6 +663,14 @@ func resumeDashServices(req resumeServicesRequest) error {
 		}
 		return nil
 	})
+}
+
+func isDashAlreadyExistsError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(strings.TrimSpace(err.Error()))
+	return strings.Contains(msg, "status 409") || strings.Contains(msg, "already exists") || strings.Contains(msg, "已存在")
 }
 
 func rollbackPausedServices(pausedServices []struct {
