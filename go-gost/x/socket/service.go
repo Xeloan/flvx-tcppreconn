@@ -145,13 +145,19 @@ func preconnGroupPaused(serviceConfigs []*config.ServiceConfig) bool {
 	return false
 }
 
+func copyServiceConfigs(serviceConfigs []*config.ServiceConfig) []*config.ServiceConfig {
+	// A shallow slice copy is enough here: we only need to preserve the original
+	// request membership for config persistence while reusing the same configs.
+	return append([]*config.ServiceConfig(nil), serviceConfigs...)
+}
+
 func createServices(req createServicesRequest) error {
 
 	if len(req.Data) == 0 {
 		return errors.New("services list cannot be empty")
 	}
 
-	allConfigs := append([]*config.ServiceConfig(nil), req.Data...)
+	allConfigs := copyServiceConfigs(req.Data)
 
 	// Check for preconn services — delegate to PreconnManager instead of gost
 	preconnHandled, remaining, err := handlePreconnServices(req.Data, true)
@@ -239,7 +245,7 @@ func updateServices(req updateServicesRequest) error {
 		return errors.New("services list cannot be empty")
 	}
 
-	allConfigs := append([]*config.ServiceConfig(nil), req.Data...)
+	allConfigs := copyServiceConfigs(req.Data)
 
 	// 第一阶段：验证所有服务名称有效性
 	for i := range req.Data {
