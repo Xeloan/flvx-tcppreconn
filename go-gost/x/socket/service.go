@@ -108,6 +108,11 @@ func resolvePreconnServiceConfigs(cfg *config.Config, serviceName string) (strin
 	return baseName, serviceConfigs
 }
 
+// preferredPreconnServiceConfig chooses the config used to (re)start tcp_pool.
+// We prefer the _tcp variant when it has a concrete target because preconn runs
+// one shared process per forward and the TCP service is the canonical variant.
+// If that is unavailable, we fall back to any config with a target, then to the
+// first config in the group so callers can still surface a configuration error.
 func preferredPreconnServiceConfig(serviceConfigs []*config.ServiceConfig) *config.ServiceConfig {
 	var first, withTarget *config.ServiceConfig
 	for _, serviceConfig := range serviceConfigs {
@@ -446,11 +451,7 @@ func pauseServices(req pauseServicesRequest) error {
 	}
 
 	// 第二阶段：事务性暂停所有服务
-	var pausedServices []struct {
-		name          string
-		service       service.Service
-		serviceConfig *config.ServiceConfig
-	}
+	var pausedServices []managedServiceState
 
 	// 获取服务配置
 	serviceConfigs := make(map[string]*config.ServiceConfig)
@@ -478,11 +479,11 @@ func pauseServices(req pauseServicesRequest) error {
 		}
 
 		// 记录已暂停的服务
-		pausedServices = append(pausedServices, struct {
-			name          string
-			service       service.Service
-			serviceConfig *config.ServiceConfig
-		}{stp.name, stp.service, serviceConfig})
+		pausedServices = append(pausedServices, managedServiceState{
+			name:          stp.name,
+			service:       stp.service,
+			serviceConfig: serviceConfig,
+		})
 	}
 
 	for baseName, serviceConfig := range preconnBases {
@@ -541,11 +542,7 @@ func resumeServices(req resumeServicesRequest) error {
 	}
 
 	// 第一阶段：验证所有服务是否存在，并筛选需要恢复的服务
-	var servicesToResume []struct {
-		name          string
-		service       service.Service
-		serviceConfig *config.ServiceConfig
-	}
+	var servicesToResume []managedServiceState
 	var skippedServices []string
 
 	cfg := config.Global()
@@ -596,19 +593,15 @@ func resumeServices(req resumeServicesRequest) error {
 			continue
 		}
 
-		servicesToResume = append(servicesToResume, struct {
-			name          string
-			service       service.Service
-			serviceConfig *config.ServiceConfig
-		}{name, svc, serviceConfig})
+		servicesToResume = append(servicesToResume, managedServiceState{
+			name:          name,
+			service:       svc,
+			serviceConfig: serviceConfig,
+		})
 	}
 
 	// 第二阶段：事务性恢复所有服务
-	var resumedServices []struct {
-		name          string
-		service       service.Service
-		serviceConfig *config.ServiceConfig
-	}
+	var resumedServices []managedServiceState
 
 	// 逐个恢复服务，如果失败则回滚
 	for _, str := range servicesToResume {
@@ -715,11 +708,7 @@ func resumeServices(req resumeServicesRequest) error {
 	return nil
 }
 
-func rollbackPausedServices(pausedServices []struct {
-	name          string
-	service       service.Service
-	serviceConfig *config.ServiceConfig
-}) {
+func rollbackPausedServices(pausedServices []managedServiceState) {
 	for _, pss := range pausedServices {
 		// 重新解析并启动服务
 		svc, err := parser.ParseService(pss.serviceConfig)
@@ -752,11 +741,7 @@ func rollbackPausedServices(pausedServices []struct {
 	}
 }
 
-func rollbackResumedServices(resumedServices []struct {
-	name          string
-	service       service.Service
-	serviceConfig *config.ServiceConfig
-}) {
+func rollbackResumedServices(resumedServices []managedServiceState) {
 	for _, rss := range resumedServices {
 		// 关闭已恢复的服务
 		if svc := registry.ServiceRegistry().Get(rss.name); svc != nil {
@@ -779,11 +764,7 @@ func rollbackResumedServices(resumedServices []struct {
 	}
 }
 
-func rollbackResumedPreconnServices(mgr *PreconnManager, resumedServices []struct {
-	name          string
-	service       service.Service
-	serviceConfig *config.ServiceConfig
-}, startedPreconnBases []string) {
+func rollbackResumedPreconnServices(mgr *PreconnManager, resumedServices []managedServiceState, startedPreconnBases []string) {
 	rollbackResumedServices(resumedServices)
 	if mgr == nil {
 		return
@@ -811,6 +792,12 @@ type updateServicesRequest struct {
 
 type createServicesRequest struct {
 	Data []*config.ServiceConfig `json:"data"`
+}
+
+type managedServiceState struct {
+	name          string
+	service       service.Service
+	serviceConfig *config.ServiceConfig
 }
 
 // handlePreconnServices processes service configs that have tcpPreconn enabled.

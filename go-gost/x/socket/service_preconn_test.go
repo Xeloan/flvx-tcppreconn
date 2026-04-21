@@ -24,7 +24,7 @@ func TestPauseServicesHandlesManagedPreconn(t *testing.T) {
 	mgr.StopAll()
 	defer mgr.StopAll()
 
-	mgr.processes[baseName] = &preconnProcess{baseName: baseName}
+	mgr.addMockProcess(baseName)
 
 	if err := pauseServices(pauseServicesRequest{Services: []string{baseName + "_tcp"}}); err != nil {
 		t.Fatalf("pauseServices: %v", err)
@@ -104,4 +104,10 @@ func newPreconnServiceConfig(name, listenAddr, remoteAddr string, paused bool) *
 		},
 		Metadata: metadata,
 	}
+}
+
+func (m *PreconnManager) addMockProcess(baseName string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.processes[baseName] = &preconnProcess{baseName: baseName}
 }
