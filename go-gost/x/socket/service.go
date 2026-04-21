@@ -298,6 +298,9 @@ func pauseServices(req pauseServicesRequest) error {
 	if len(req.Services) == 0 {
 		return errors.New("services list cannot be empty")
 	}
+	if IsDashMode {
+		return pauseDashServices(req)
+	}
 
 	// Stop any preconn processes for paused services
 	mgr := GetPreconnManager()
@@ -418,6 +421,9 @@ func pauseServices(req pauseServicesRequest) error {
 func resumeServices(req resumeServicesRequest) error {
 	if len(req.Services) == 0 {
 		return errors.New("services list cannot be empty")
+	}
+	if IsDashMode {
+		return resumeDashServices(req)
 	}
 
 	// 第一阶段：验证所有服务是否存在，并筛选需要恢复的服务
@@ -549,6 +555,122 @@ func resumeServices(req resumeServicesRequest) error {
 	}
 
 	return nil
+}
+
+func pauseDashServices(req pauseServicesRequest) error {
+	cfg := config.Global()
+	serviceConfigs := make(map[string]*config.ServiceConfig, len(cfg.Services))
+	for _, svc := range cfg.Services {
+		if svc == nil {
+			continue
+		}
+		serviceConfigs[strings.TrimSpace(svc.Name)] = svc
+	}
+
+	for _, serviceName := range req.Services {
+		name := strings.TrimSpace(serviceName)
+		if name == "" {
+			return errors.New("service name is required")
+		}
+		if serviceConfigs[name] == nil {
+			return fmt.Errorf("service %s configuration not found", name)
+		}
+		if err := CallDashAPI("DELETE", "/config/services/"+name, nil); err != nil {
+			return err
+		}
+	}
+
+	if err := config.OnUpdate(func(c *config.Config) error {
+		for _, serviceName := range req.Services {
+			name := strings.TrimSpace(serviceName)
+			for i := range c.Services {
+				if c.Services[i].Name == name {
+					if c.Services[i].Metadata == nil {
+						c.Services[i].Metadata = make(map[string]any)
+					}
+					c.Services[i].Metadata["paused"] = true
+					break
+				}
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	for _, serviceName := range req.Services {
+		registry.ServiceRegistry().Unregister(strings.TrimSpace(serviceName))
+	}
+
+	return nil
+}
+
+func resumeDashServices(req resumeServicesRequest) error {
+	cfg := config.Global()
+	serviceConfigs := make(map[string]*config.ServiceConfig, len(cfg.Services))
+	for _, svc := range cfg.Services {
+		if svc == nil {
+			continue
+		}
+		serviceConfigs[strings.TrimSpace(svc.Name)] = svc
+	}
+
+	for _, serviceName := range req.Services {
+		name := strings.TrimSpace(serviceName)
+		if name == "" {
+			return errors.New("service name is required")
+		}
+		serviceConfig := serviceConfigs[name]
+		if serviceConfig == nil {
+			return fmt.Errorf("service %s configuration not found", name)
+		}
+
+		paused := false
+		if serviceConfig.Metadata != nil {
+			if pausedVal, exists := serviceConfig.Metadata["paused"]; exists && pausedVal == true {
+				paused = true
+			}
+		}
+		if !paused {
+			continue
+		}
+
+		payload := sanitizeForDash(serviceConfig)
+		if err := CallDashAPI("POST", "/config/services", payload); err != nil {
+			if !isDashAlreadyExistsError(err) {
+				return err
+			}
+			if err := CallDashAPI("PUT", "/config/services/"+name, payload); err != nil {
+				return fmt.Errorf("dash resume update %s failed after create conflict: %w", name, err)
+			}
+		}
+	}
+
+	return config.OnUpdate(func(c *config.Config) error {
+		for _, serviceName := range req.Services {
+			name := strings.TrimSpace(serviceName)
+			for i := range c.Services {
+				if c.Services[i].Name == name {
+					if c.Services[i].Metadata != nil {
+						delete(c.Services[i].Metadata, "paused")
+						if len(c.Services[i].Metadata) == 0 {
+							c.Services[i].Metadata = nil
+						}
+					}
+					break
+				}
+			}
+		}
+		return nil
+	})
+}
+
+func isDashAlreadyExistsError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(strings.TrimSpace(err.Error()))
+	return strings.Contains(msg, "status 409") || strings.Contains(msg, "already exists") || strings.Contains(msg, "已存在")
 }
 
 func rollbackPausedServices(pausedServices []struct {
