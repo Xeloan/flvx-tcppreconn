@@ -9,12 +9,8 @@ import (
 	"time"
 )
 
-var (
-	dashAPIBaseURL = "http://127.0.0.1:19090"
-	dashHTTPClient = &http.Client{Timeout: 5 * time.Second}
-)
-
 func CallDashAPI(method, endpoint string, payload interface{}) error {
+	client := &http.Client{Timeout: 5 * time.Second}
 	var reqBody []byte
 	var err error
 	if payload != nil {
@@ -24,13 +20,13 @@ func CallDashAPI(method, endpoint string, payload interface{}) error {
 		}
 	}
 
-	req, err := http.NewRequest(method, dashAPIBaseURL+endpoint, bytes.NewBuffer(reqBody))
+	req, err := http.NewRequest(method, "http://127.0.0.1:19090"+endpoint, bytes.NewBuffer(reqBody))
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := dashHTTPClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
