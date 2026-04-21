@@ -548,8 +548,7 @@ const normalizeForwardItems = (items: Forward[]): Forward[] => {
   return items.map((forward) => ({
     ...forward,
     serviceRunning: forward.status === 1,
-    tcpPreconn:
-      typeof forward.tcpPreconn === "number" ? forward.tcpPreconn : 0,
+    tcpPreconn: typeof forward.tcpPreconn === "number" ? forward.tcpPreconn : 0,
   }));
 };
 
@@ -3815,7 +3814,6 @@ export default function ForwardPage() {
                       />
                     </svg>
                   )}
-
                 </div>
               </button>
 

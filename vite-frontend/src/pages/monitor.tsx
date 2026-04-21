@@ -2,7 +2,13 @@ import type { MonitorNodeApiItem } from "@/api/types";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { RefreshCw, LayoutGrid, List, Server, ArrowRightLeft } from "lucide-react";
+import {
+  RefreshCw,
+  LayoutGrid,
+  List,
+  Server,
+  ArrowRightLeft,
+} from "lucide-react";
 
 import { AnimatedPage } from "@/components/animated-page";
 import { Button } from "@/shadcn-bridge/heroui/button";
@@ -29,6 +35,7 @@ export default function MonitorPage() {
 
   const loadNodes = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
+
     if (!silent) setNodesLoading(true);
     try {
       const response = await getMonitorNodes();
@@ -97,7 +104,11 @@ export default function MonitorPage() {
               variant="flat"
               onPress={() => setViewMode(viewMode === "list" ? "grid" : "list")}
             >
-              {viewMode === "list" ? <LayoutGrid className="w-4 h-4" /> : <List className="w-4 h-4" />}
+              {viewMode === "list" ? (
+                <LayoutGrid className="w-4 h-4" />
+              ) : (
+                <List className="w-4 h-4" />
+              )}
             </Button>
             {activeTab === "nodes" && (
               <Button
