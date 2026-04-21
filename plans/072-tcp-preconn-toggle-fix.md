@@ -1,0 +1,4 @@
+- [x] Review the current TCP preconnection pause/resume path and document the targeted fix scope
+- [x] Make agent-side pause/resume service control support TCP preconnection-managed forwards
+- [x] Add regression tests for TCP preconnection pause/resume control
+- [x] Run targeted validation for backend and agent changes
