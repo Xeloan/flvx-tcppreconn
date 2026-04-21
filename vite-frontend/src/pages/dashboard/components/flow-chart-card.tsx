@@ -1,4 +1,5 @@
 import {
+  CartesianGrid,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -27,7 +28,7 @@ export const FlowChartCard = ({
   formatFlow,
 }: FlowChartCardProps) => {
   return (
-    <Card className="mb-6 lg:mb-8">
+    <Card className="mb-6 lg:mb-8 border border-gray-200 dark:border-default-200 shadow-md">
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           <svg
@@ -54,15 +55,16 @@ export const FlowChartCard = ({
                 data={chartData}
                 margin={{ top: 20, right: 0, left: -20, bottom: 0 }}
               >
+                <CartesianGrid className="opacity-30" strokeDasharray="3 3" />
                 <XAxis
-                  axisLine={false}
+                  axisLine={{ stroke: "#e5e7eb", strokeWidth: 1 }}
                   dataKey="time"
-                  tick={{ fill: "currentColor", opacity: 0.5, fontSize: 12 }}
+                  tick={{ fontSize: 12 }}
                   tickLine={false}
                 />
                 <YAxis
-                  axisLine={false}
-                  tick={{ fill: "currentColor", opacity: 0.5, fontSize: 12 }}
+                  axisLine={{ stroke: "#e5e7eb", strokeWidth: 1 }}
+                  tick={{ fontSize: 12 }}
                   tickFormatter={(value: number | string) => {
                     const v = typeof value === "number" ? value : Number(value);
 
@@ -98,18 +100,29 @@ export const FlowChartCard = ({
                         : 0;
 
                       return (
-                        <div className="bg-white/20 dark:bg-black/20 backdrop-blur-3xl border border-white/50 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.1)] p-4">
+                        <div className="bg-white dark:bg-default-100 border border-default-200 rounded-lg shadow-lg p-3">
                           <p className="font-medium text-foreground">{`时间: ${label ?? ""}`}</p>
-                          <p className="text-primary font-semibold mt-1">{`流量: ${formatFlow(flowValue)}`}</p>
+                          <p className="text-primary">{`流量: ${formatFlow(flowValue)}`}</p>
                         </div>
                       );
                     }
 
                     return null;
                   }}
-                  cursor={{ fill: "rgba(0, 122, 255, 0.05)" }}
                 />
-                <Line dataKey="flow" stroke="#007aff" type="monotone" />
+                <Line
+                  activeDot={{
+                    r: 4,
+                    stroke: "#8b5cf6",
+                    strokeWidth: 2,
+                    fill: "#fff",
+                  }}
+                  dataKey="flow"
+                  dot={false}
+                  stroke="#8b5cf6"
+                  strokeWidth={3}
+                  type="monotone"
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>

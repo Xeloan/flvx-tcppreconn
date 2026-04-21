@@ -8,7 +8,9 @@ import { Card, CardBody, CardHeader } from "@/shadcn-bridge/heroui/card";
 import { Input } from "@/shadcn-bridge/heroui/input";
 import { Button } from "@/shadcn-bridge/heroui/button";
 import { siteConfig } from "@/config/site";
+import { title } from "@/components/primitives";
 import { VersionFooter } from "@/components/version-footer";
+import DefaultLayout from "@/layouts/default";
 import { login, LoginData, checkCaptcha, getConfigByName } from "@/api";
 import { writeLoginSession } from "@/utils/session";
 import { useWebViewMode } from "@/hooks/useWebViewMode";
@@ -150,51 +152,29 @@ export default function IndexPage() {
   };
 
   return (
-    <div className="relative flex flex-col min-h-screen bg-mesh-gradient overflow-hidden">
-      <section className="flex flex-col items-center justify-center flex-1 w-full p-4 relative z-10">
+    <DefaultLayout>
+      <section className="flex flex-col items-center justify-center gap-4 py-4 sm:py-8 md:py-10 pb-20 min-h-[calc(100dvh-120px)] sm:min-h-[calc(100dvh-200px)]">
         <motion.div
           animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-[420px] px-4 sm:px-0"
+          className="w-full max-w-md px-4 sm:px-0"
           initial={{ opacity: 0, y: 24 }}
           transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
         >
-          <Card className="w-full bg-white/20 dark:bg-zinc-900/20 backdrop-blur-3xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] border-white/80 dark:border-white/10 rounded-[32px] p-2 sm:p-4">
+          <Card className="w-full">
             <CardHeader className="pb-0 pt-6 px-6 flex-col items-center">
-              <div className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center mb-4 shadow-sm text-white">
-                <svg
-                  className="w-8 h-8"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                  />
-                </svg>
-              </div>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                Welcome to Flvx
-              </h1>
-              <p className="text-sm text-default-500 mt-2 font-medium">
-                Sign in to manage your networks
+              <h1 className={title({ size: "sm" })}>登陆</h1>
+              <p className="text-small text-default-500 mt-2">
+                请输入您的账号信息
               </p>
             </CardHeader>
-            <CardBody className="px-6 py-6 mt-2">
-              <div className="flex flex-col gap-5">
+            <CardBody className="px-6 py-6">
+              <div className="flex flex-col gap-4">
                 <Input
-                  classNames={{
-                    inputWrapper:
-                      "bg-white/50 dark:bg-black/50 backdrop-blur-md border border-white/60 dark:border-white/10 h-12 shadow-sm rounded-xl",
-                    input: "text-base font-medium",
-                  }}
                   errorMessage={errors.username}
                   isDisabled={loading}
                   isInvalid={!!errors.username}
-                  label="Username"
-                  placeholder="admin"
+                  label="用户名"
+                  placeholder="请输入用户名"
                   value={form.username}
                   variant="bordered"
                   onChange={(e) =>
@@ -204,15 +184,10 @@ export default function IndexPage() {
                 />
 
                 <Input
-                  classNames={{
-                    inputWrapper:
-                      "bg-white/50 dark:bg-black/50 backdrop-blur-md border border-white/60 dark:border-white/10 h-12 shadow-sm rounded-xl",
-                    input: "text-base font-medium tracking-wider",
-                  }}
                   isDisabled={loading}
                   isInvalid={!!errors.password}
-                  label="Password"
-                  placeholder="••••••••"
+                  label="密码"
+                  placeholder="请输入密码"
                   type="password"
                   value={form.password}
                   variant="bordered"
@@ -223,16 +198,14 @@ export default function IndexPage() {
                 />
 
                 <Button
-                  className="mt-4 h-12 rounded-xl bg-primary text-white font-bold text-base shadow-[0_8px_16px_rgba(0,122,255,0.3)] transition-transform active:scale-[0.98]"
+                  className="mt-2"
+                  color="primary"
                   disabled={loading}
                   isLoading={loading}
+                  size="lg"
                   onPress={handleLogin}
                 >
-                  {loading
-                    ? showCaptcha
-                      ? "Verifying..."
-                      : "Signing in..."
-                    : "Sign In"}
+                  {loading ? (showCaptcha ? "验证中..." : "登录中...") : "登录"}
                 </Button>
               </div>
             </CardBody>
@@ -302,6 +275,6 @@ export default function IndexPage() {
           </div>
         )}
       </section>
-    </div>
+    </DefaultLayout>
   );
 }
