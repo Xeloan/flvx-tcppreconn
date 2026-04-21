@@ -46,6 +46,52 @@ func extractFirstForwarderTarget(cfg *config.ServiceConfig) string {
 	return ""
 }
 
+// collectPreconnConfigs returns the service configs from allConfigs that are NOT
+// in remaining, i.e. those that were delegated to the PreconnManager.
+func collectPreconnConfigs(allConfigs, remaining []*config.ServiceConfig) []*config.ServiceConfig {
+	remainingSet := make(map[string]bool, len(remaining))
+	for _, c := range remaining {
+		remainingSet[c.Name] = true
+	}
+	var out []*config.ServiceConfig
+	for _, c := range allConfigs {
+		if !remainingSet[c.Name] {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// upsertServiceConfigs updates existing entries in c.Services or appends new ones.
+func upsertServiceConfigs(c *config.Config, cfgs []*config.ServiceConfig) {
+	for _, cfg := range cfgs {
+		found := false
+		for j := range c.Services {
+			if c.Services[j].Name == cfg.Name {
+				c.Services[j] = cfg
+				found = true
+				break
+			}
+		}
+		if !found {
+			c.Services = append(c.Services, cfg)
+		}
+	}
+}
+
+// isServicePaused reports whether the service config carries a "paused" metadata flag.
+func isServicePaused(cfg *config.ServiceConfig) bool {
+	if cfg == nil || cfg.Metadata == nil {
+		return false
+	}
+	v, ok := cfg.Metadata["paused"]
+	if !ok {
+		return false
+	}
+	b, ok := v.(bool)
+	return ok && b
+}
+
 func createServices(req createServicesRequest) error {
 
 	if len(req.Data) == 0 {
@@ -57,7 +103,19 @@ func createServices(req createServicesRequest) error {
 	if err != nil {
 		return err
 	}
+	// Collect preconn service configs so they can be persisted in global config.
+	var preconnConfigs []*config.ServiceConfig
+	if preconnHandled {
+		preconnConfigs = collectPreconnConfigs(req.Data, remaining)
+	}
 	if preconnHandled && len(remaining) == 0 {
+		// Persist preconn service configs so pause/resume can find them later.
+		if len(preconnConfigs) > 0 {
+			config.OnUpdate(func(c *config.Config) error {
+				c.Services = append(c.Services, preconnConfigs...)
+				return nil
+			})
+		}
 		return nil
 	}
 	req.Data = remaining
@@ -120,6 +178,8 @@ func createServices(req createServicesRequest) error {
 		for _, ps := range parsedServices {
 			c.Services = append(c.Services, ps.config)
 		}
+		// Also persist any preconn service configs that were handled separately.
+		c.Services = append(c.Services, preconnConfigs...)
 		return nil
 	})
 
@@ -147,7 +207,19 @@ func updateServices(req updateServicesRequest) error {
 	if err != nil {
 		return err
 	}
+	// Collect preconn service configs so they can be persisted in global config.
+	var preconnConfigs []*config.ServiceConfig
+	if preconnHandled {
+		preconnConfigs = collectPreconnConfigs(req.Data, remaining)
+	}
 	if preconnHandled && len(remaining) == 0 {
+		// Persist preconn service configs (upsert) so pause/resume can find them later.
+		if len(preconnConfigs) > 0 {
+			config.OnUpdate(func(c *config.Config) error {
+				upsertServiceConfigs(c, preconnConfigs)
+				return nil
+			})
+		}
 		return nil
 	}
 	req.Data = remaining
@@ -200,19 +272,10 @@ func updateServices(req updateServicesRequest) error {
 
 	// 第三阶段：更新配置
 	config.OnUpdate(func(c *config.Config) error {
-		for _, cfg := range req.Data {
-			found := false
-			for j := range c.Services {
-				if c.Services[j].Name == cfg.Name {
-					c.Services[j] = cfg
-					found = true
-					break
-				}
-			}
-			if !found {
-				c.Services = append(c.Services, cfg)
-			}
-		}
+		// Upsert gost service configs
+		upsertServiceConfigs(c, req.Data)
+		// Also upsert any preconn service configs that were handled separately.
+		upsertServiceConfigs(c, preconnConfigs)
 		return nil
 	})
 
@@ -299,6 +362,13 @@ func pauseServices(req pauseServicesRequest) error {
 		return errors.New("services list cannot be empty")
 	}
 
+	// 获取服务配置（提前获取，以便在验证阶段检测预连接服务）
+	cfg := config.Global()
+	serviceConfigs := make(map[string]*config.ServiceConfig)
+	for _, s := range cfg.Services {
+		serviceConfigs[s.Name] = s
+	}
+
 	// Stop any preconn processes for paused services
 	mgr := GetPreconnManager()
 	for _, serviceName := range req.Services {
@@ -313,9 +383,7 @@ func pauseServices(req pauseServicesRequest) error {
 		name    string
 		service service.Service
 	}
-	//var skippedServices []string
 
-	cfg := config.Global()
 	for _, serviceName := range req.Services {
 		name := strings.TrimSpace(serviceName)
 		if name == "" {
@@ -324,25 +392,18 @@ func pauseServices(req pauseServicesRequest) error {
 
 		svc := registry.ServiceRegistry().Get(name)
 		if svc == nil {
+			// Check if this is a preconn-managed service (already stopped by the leading loop).
+			// If so, treat it as paused without requiring a gost registry entry.
+			cfgSvc := serviceConfigs[name]
+			if cfgSvc != nil && isPreconnService(cfgSvc) {
+				servicesToPause = append(servicesToPause, struct {
+					name    string
+					service service.Service
+				}{name, nil})
+				continue
+			}
 			return errors.New(fmt.Sprintf("service %s not found", name))
 		}
-
-		//// 检查服务是否已经暂停
-		//var serviceConfig *config.ServiceConfig
-		//for _, s := range cfg.Services {
-		//	if s.Name == name {
-		//		serviceConfig = s
-		//		break
-		//	}
-		//}
-		//
-		//// 如果服务已经暂停，跳过
-		//if serviceConfig != nil && serviceConfig.Metadata != nil {
-		//	if pausedVal, exists := serviceConfig.Metadata["paused"]; exists && pausedVal == true {
-		//		skippedServices = append(skippedServices, name)
-		//		continue
-		//	}
-		//}
 
 		servicesToPause = append(servicesToPause, struct {
 			name    string
@@ -357,12 +418,6 @@ func pauseServices(req pauseServicesRequest) error {
 		serviceConfig *config.ServiceConfig
 	}
 
-	// 获取服务配置
-	serviceConfigs := make(map[string]*config.ServiceConfig)
-	for _, s := range cfg.Services {
-		serviceConfigs[s.Name] = s
-	}
-
 	// 逐个暂停服务，如果失败则回滚
 	for _, stp := range servicesToPause {
 		serviceConfig := serviceConfigs[stp.name]
@@ -372,8 +427,8 @@ func pauseServices(req pauseServicesRequest) error {
 			return errors.New(fmt.Sprintf("service %s configuration not found", stp.name))
 		}
 
-		// 暂停服务
-		if !IsDashMode {
+		// 暂停服务（预连接服务已由前面的 mgr.StopPreconn 停止，跳过 gost close 步骤）
+		if !IsDashMode && stp.service != nil {
 			stp.service.Close()
 
 			// 强制断开端口的所有连接
@@ -438,6 +493,29 @@ func resumeServices(req resumeServicesRequest) error {
 		// 检查服务是否存在
 		svc := registry.ServiceRegistry().Get(name)
 		if svc == nil {
+			// Check if this is a preconn service whose config is stored in global config.
+			var preconnCfg *config.ServiceConfig
+			for _, s := range cfg.Services {
+				if s.Name == name {
+					if isPreconnService(s) {
+						preconnCfg = s
+					}
+					break
+				}
+			}
+			if preconnCfg != nil {
+				// Preconn service — check if it's marked as paused before resuming.
+				if !isServicePaused(preconnCfg) {
+					skippedServices = append(skippedServices, name)
+					continue
+				}
+				servicesToResume = append(servicesToResume, struct {
+					name          string
+					service       service.Service
+					serviceConfig *config.ServiceConfig
+				}{name, nil, preconnCfg})
+				continue
+			}
 			return errors.New(fmt.Sprintf("service %s not found", name))
 		}
 
@@ -454,16 +532,8 @@ func resumeServices(req resumeServicesRequest) error {
 			return errors.New(fmt.Sprintf("service %s configuration not found", name))
 		}
 
-		// 检查是否处于暂停状态
-		paused := false
-		if serviceConfig.Metadata != nil {
-			if pausedVal, exists := serviceConfig.Metadata["paused"]; exists && pausedVal == true {
-				paused = true
-			}
-		}
-
 		// 如果服务没有暂停(即正在运行)，跳过
-		if !paused {
+		if !isServicePaused(serviceConfig) {
 			skippedServices = append(skippedServices, name)
 			continue
 		}
@@ -482,8 +552,26 @@ func resumeServices(req resumeServicesRequest) error {
 		serviceConfig *config.ServiceConfig
 	}
 
+	mgr := GetPreconnManager()
+
 	// 逐个恢复服务，如果失败则回滚
 	for _, str := range servicesToResume {
+		// For preconn services (nil svc), restart the tcp_pool process instead of gost.
+		if str.service == nil && isPreconnService(str.serviceConfig) {
+			baseName := ExtractPreconnBaseName(str.name)
+			target := extractFirstForwarderTarget(str.serviceConfig)
+			if target == "" {
+				rollbackResumedServices(resumedServices)
+				return fmt.Errorf("preconn: no forwarder target for service %s", str.name)
+			}
+			if err := mgr.StartPreconn(baseName, str.serviceConfig.Addr, target); err != nil {
+				rollbackResumedServices(resumedServices)
+				return err
+			}
+			resumedServices = append(resumedServices, str)
+			continue
+		}
+
 		// 先关闭现有服务
 		if !IsDashMode {
 			str.service.Close()
@@ -557,6 +645,16 @@ func rollbackPausedServices(pausedServices []struct {
 	serviceConfig *config.ServiceConfig
 }) {
 	for _, pss := range pausedServices {
+		// For preconn services (nil service), restart the tcp_pool process.
+		if pss.service == nil && isPreconnService(pss.serviceConfig) {
+			mgr := GetPreconnManager()
+			target := extractFirstForwarderTarget(pss.serviceConfig)
+			if target != "" {
+				_ = mgr.StartPreconn(ExtractPreconnBaseName(pss.name), pss.serviceConfig.Addr, target)
+			}
+			continue
+		}
+
 		// 重新解析并启动服务
 		svc, err := parser.ParseService(pss.serviceConfig)
 		if err != nil {
@@ -594,6 +692,25 @@ func rollbackResumedServices(resumedServices []struct {
 	serviceConfig *config.ServiceConfig
 }) {
 	for _, rss := range resumedServices {
+		// For preconn services (nil service), stop the tcp_pool process and re-mark as paused.
+		if rss.service == nil && isPreconnService(rss.serviceConfig) {
+			mgr := GetPreconnManager()
+			mgr.StopPreconn(ExtractPreconnBaseName(rss.name))
+			config.OnUpdate(func(c *config.Config) error {
+				for i := range c.Services {
+					if c.Services[i].Name == rss.name {
+						if c.Services[i].Metadata == nil {
+							c.Services[i].Metadata = make(map[string]any)
+						}
+						c.Services[i].Metadata["paused"] = true
+						break
+					}
+				}
+				return nil
+			})
+			continue
+		}
+
 		// 关闭已恢复的服务
 		if svc := registry.ServiceRegistry().Get(rss.name); svc != nil {
 			svc.Close()
