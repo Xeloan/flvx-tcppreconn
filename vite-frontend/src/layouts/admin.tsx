@@ -27,6 +27,8 @@ import { siteConfig } from "@/config/site";
 import { useMobileBreakpoint } from "@/hooks/useMobileBreakpoint";
 import { getAdminFlag, getSessionName } from "@/utils/session";
 
+const DEFAULT_USERNAME = "Admin";
+
 interface MenuItem {
   path: string;
   label: string;
@@ -54,7 +56,9 @@ export default function AdminLayout({
   const [isCollapsed, setIsCollapsed] = useState(
     () => localStorage.getItem("sidebar_collapsed") === "true",
   );
-  const [username, setUsername] = useState(() => getSessionName() || "Admin");
+  const [username, setUsername] = useState(
+    () => getSessionName() || DEFAULT_USERNAME,
+  );
   const [isAdmin, setIsAdmin] = useState(() => getAdminFlag());
   const [monitorAllowed, setMonitorAllowed] = useState<boolean | null>(null);
   const [monitorAccessReason, setMonitorAccessReason] = useState<string | null>(
@@ -196,7 +200,7 @@ export default function AdminLayout({
 
   useEffect(() => {
     // 获取用户信息
-    const name = getSessionName() || "Admin";
+    const name = getSessionName() || DEFAULT_USERNAME;
     const adminFlag = getAdminFlag();
 
     setUsername(name);

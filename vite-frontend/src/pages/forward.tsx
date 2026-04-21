@@ -544,11 +544,15 @@ const isSameGroupCollapsedMap = (
   return true;
 };
 
+const normalizeTcpPreconn = (value: unknown): number => {
+  return typeof value === "number" ? value : 0;
+};
+
 const normalizeForwardItems = (items: Forward[]): Forward[] => {
   return items.map((forward) => ({
     ...forward,
     serviceRunning: forward.status === 1,
-    tcpPreconn: typeof forward.tcpPreconn === "number" ? forward.tcpPreconn : 0,
+    tcpPreconn: normalizeTcpPreconn(forward.tcpPreconn),
   }));
 };
 
@@ -577,7 +581,7 @@ const mapForwardApiItems = (items: ForwardApiItem[]): Forward[] => {
         ? forward.speedId
         : undefined,
     serviceRunning: forward.status === 1,
-    tcpPreconn: typeof forward.tcpPreconn === "number" ? forward.tcpPreconn : 0,
+    tcpPreconn: normalizeTcpPreconn(forward.tcpPreconn),
   }));
 };
 
