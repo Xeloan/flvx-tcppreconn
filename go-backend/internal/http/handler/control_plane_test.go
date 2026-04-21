@@ -401,6 +401,18 @@ func TestIsAlreadyExistsMessage(t *testing.T) {
 	}
 }
 
+func TestIsNotFoundError(t *testing.T) {
+	if !isNotFoundError(errors.New("service demo not found")) {
+		t.Fatalf("expected spaced not found message to be detected")
+	}
+	if !isNotFoundError(errors.New("service demo notfound")) {
+		t.Fatalf("expected compact notfound message to be detected")
+	}
+	if isNotFoundError(errors.New("network timeout")) {
+		t.Fatalf("unexpected non-not-found detection")
+	}
+}
+
 func TestIsBindAddressInUseError(t *testing.T) {
 	if !isBindAddressInUseError(errors.New("listen tcp [::]:10001: bind: address already in use")) {
 		t.Fatalf("address already in use should be detected")

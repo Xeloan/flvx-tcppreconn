@@ -1552,7 +1552,11 @@ func isNotFoundError(err error) bool {
 		return false
 	}
 	msg := strings.ToLower(strings.TrimSpace(err.Error()))
-	return strings.Contains(msg, "not found") || strings.Contains(msg, "不存在")
+	if msg == "" {
+		return false
+	}
+	compact := compactErrorMessage(msg)
+	return strings.Contains(msg, "not found") || strings.Contains(msg, "不存在") || strings.Contains(compact, "notfound")
 }
 
 func isAlreadyExistsMessage(message string) bool {
