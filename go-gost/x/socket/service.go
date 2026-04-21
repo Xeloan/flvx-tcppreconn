@@ -573,7 +573,7 @@ func pauseDashServices(req pauseServicesRequest) error {
 			return errors.New("service name is required")
 		}
 		if serviceConfigs[name] == nil {
-			return errors.New(fmt.Sprintf("service %s configuration not found", name))
+			return fmt.Errorf("service %s configuration not found", name)
 		}
 		if err := CallDashAPI("DELETE", "/config/services/"+name, nil); err != nil {
 			return err
@@ -615,7 +615,7 @@ func resumeDashServices(req resumeServicesRequest) error {
 		}
 		serviceConfig := serviceConfigs[name]
 		if serviceConfig == nil {
-			return errors.New(fmt.Sprintf("service %s configuration not found", name))
+			return fmt.Errorf("service %s configuration not found", name)
 		}
 
 		paused := false
