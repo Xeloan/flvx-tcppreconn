@@ -164,7 +164,7 @@ func parseListenAddr(addr string) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	if host == "" || host == "0.0.0.0" || host == "::" {
+	if host == "" || host == "0.0.0.0" {
 		host = "0.0.0.0"
 	}
 	return host, port, nil
