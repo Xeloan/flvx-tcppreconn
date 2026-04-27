@@ -73,7 +73,7 @@ interface ConfigItem {
 
 const BRAND_PREVIEW_KEYS = ["app_logo", "app_favicon"] as const;
 const DEFAULT_DARK_BG = "#0b1020";
-const HEX_COLOR_REGEX = /^#(?:[0-9a-fA-F]{3}){1,2}$/;
+const HEX_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}){1,2}$/;
 
 type BrandPreviewKey = (typeof BRAND_PREVIEW_KEYS)[number];
 
@@ -657,10 +657,15 @@ export default function ConfigPage() {
       bgImage.startsWith("blob:");
     const isTheme = bgImage === "theme";
     const isSolidColor = bgImage && !isImage && !isTheme;
-    const colorPickerValue =
-      isSolidColor && HEX_COLOR_REGEX.test(bgImage)
-        ? bgImage
-        : DEFAULT_DARK_BG;
+    const hasHexColorValue = isSolidColor && HEX_COLOR_PATTERN.test(bgImage);
+    const colorPickerValue = hasHexColorValue ? bgImage : DEFAULT_DARK_BG;
+    const currentBgLabel = !bgImage
+      ? "默认背景"
+      : isTheme
+        ? "跟随主题"
+        : isImage
+          ? "自定义图片"
+          : bgImage;
 
     return (
       <div className="flex flex-col gap-4 w-full">
@@ -754,9 +759,14 @@ export default function ConfigPage() {
               />
             </label>
             <span className="text-xs text-default-500">
-              当前值：{bgImage || "默认背景"}
+              当前值：{currentBgLabel}
             </span>
           </div>
+          {isSolidColor && !hasHexColorValue && (
+            <span className="text-xs text-warning-600 dark:text-warning-400">
+              当前纯色值不支持拾色器显示，重新选择颜色后会覆盖该值。
+            </span>
+          )}
         </div>
 
         {bgImage && isImage && (
