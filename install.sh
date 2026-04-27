@@ -67,6 +67,24 @@ cleanup_local_legacy() {
   rm -f "$INSTALL_DIR/tcp_pool" 2>/dev/null || true
 }
 
+purge_existing_installation() {
+  local repo_lower
+  repo_lower=$(echo "$REPO" | tr '[:upper:]' '[:lower:]')
+
+  echo "🧨 清理旧版 Agent 安装..."
+  docker rm -f flux_agent >/dev/null 2>&1 || true
+  docker rmi bugnet/flvx-agent:main >/dev/null 2>&1 || true
+  docker rmi ghcr.io/${repo_lower}-agent:main >/dev/null 2>&1 || true
+
+  cleanup_local_legacy
+
+  if [[ -d "$INSTALL_DIR" ]]; then
+    rm -rf "$INSTALL_DIR"
+  fi
+
+  echo "✅ 旧版 Agent 安装已清理"
+}
+
 run_docker_agent() {
   # 停止或清理已有同名容器
   docker rm -f flux_agent >/dev/null 2>&1 || true
@@ -106,8 +124,8 @@ install_flux_agent() {
     get_config_params
   fi
 
+  purge_existing_installation
   mkdir -p "$INSTALL_DIR"
-  cleanup_local_legacy
 
   CONFIG_FILE="$INSTALL_DIR/config.json"
   echo "📄 创建配置: config.json"

@@ -376,7 +376,7 @@ export default function AdminLayout({
 
   return (
     <div
-      className={`flex ${isMobile ? "min-h-screen" : "h-screen"} bg-gray-100 dark:bg-black`}
+      className={`bg-mesh-gradient flex ${isMobile ? "min-h-screen" : "h-screen"}`}
     >
       {/* 移动端遮罩层 */}
       {isMobile && mobileMenuVisible && (
@@ -394,7 +394,7 @@ export default function AdminLayout({
         ${isMobile ? "fixed" : "relative"} 
         ${isMobile && !mobileMenuVisible ? "-translate-x-full" : "translate-x-0"}
         ${isMobile ? "w-64" : isCollapsed ? "w-20" : "w-72"} 
-        bg-white dark:bg-black 
+        bg-background/85 dark:bg-background/80 backdrop-blur-xl
         shadow-lg 
         border-r border-gray-200 dark:border-gray-600
         z-50 
@@ -548,7 +548,7 @@ export default function AdminLayout({
         className={`flex flex-col flex-1 ${isMobile ? "min-h-0" : "h-full overflow-hidden"}`}
       >
         {/* 顶部导航栏 */}
-        <header className="bg-white dark:bg-black shadow-md border-b border-gray-200 dark:border-gray-600 h-14 flex items-center justify-between px-4 lg:px-6 relative z-10">
+        <header className="bg-background/85 dark:bg-background/80 backdrop-blur-xl shadow-md border-b border-gray-200 dark:border-gray-600 h-14 flex items-center justify-between px-4 lg:px-6 relative z-10">
           <div className="flex items-center gap-4">
             {/* 移动端菜单按钮 */}
             {isMobile && (
@@ -644,7 +644,7 @@ export default function AdminLayout({
         </header>
 
         {/* 主内容 */}
-        <main className="flex-1 bg-gray-100 dark:bg-black overflow-y-auto">
+        <main className="flex-1 overflow-y-auto bg-transparent">
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}

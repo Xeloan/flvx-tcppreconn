@@ -72,6 +72,8 @@ interface ConfigItem {
 }
 
 const BRAND_PREVIEW_KEYS = ["app_logo", "app_favicon"] as const;
+const DEFAULT_DARK_BG = "#0b1020";
+const HEX_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}){1,2}$/;
 
 type BrandPreviewKey = (typeof BRAND_PREVIEW_KEYS)[number];
 
@@ -79,6 +81,11 @@ const isBrandPreviewKey = (key: string): key is BrandPreviewKey =>
   BRAND_PREVIEW_KEYS.includes(key as BrandPreviewKey);
 
 const BRAND_FILE_ACCEPT = "image/png,image/jpeg,image/webp,image/svg+xml";
+const BACKGROUND_COLOR_PRESETS = [
+  { label: "跟随主题", value: "theme" },
+  { label: "浅色纯色", value: "#ffffff" },
+  { label: "深色纯色", value: DEFAULT_DARK_BG },
+] as const;
 
 const toBrandAssetKind = (key: BrandPreviewKey): BrandAssetKind => {
   return key === "app_logo" ? "logo" : "favicon";
@@ -217,6 +224,7 @@ const getInitialConfigs = (): Record<string, string> => {
     "panel_domain",
     "app_logo",
     "app_favicon",
+    "app_bg_image",
     "github_proxy_enabled",
     "github_proxy_url",
   ];
@@ -466,7 +474,9 @@ export default function ConfigPage() {
 
         if (
           changedKeys.some((key) =>
-            ["app_name", "app_logo", "app_favicon"].includes(key),
+            ["app_name", "app_logo", "app_favicon", "app_bg_image"].includes(
+              key,
+            ),
           )
         ) {
           await updateSiteConfig(configs);
@@ -647,6 +657,19 @@ export default function ConfigPage() {
       bgImage.startsWith("blob:");
     const isTheme = bgImage === "theme";
     const isSolidColor = bgImage && !isImage && !isTheme;
+    const hasHexColorValue = isSolidColor && HEX_COLOR_PATTERN.test(bgImage);
+    const colorPickerValue = hasHexColorValue ? bgImage : DEFAULT_DARK_BG;
+    let currentBgLabel = "默认背景";
+
+    if (bgImage) {
+      if (isTheme) {
+        currentBgLabel = "跟随主题";
+      } else if (isImage) {
+        currentBgLabel = "自定义图片";
+      } else {
+        currentBgLabel = bgImage;
+      }
+    }
 
     return (
       <div className="flex flex-col gap-4 w-full">
@@ -682,6 +705,14 @@ export default function ConfigPage() {
           >
             白色纯色
           </Button>
+          <Button
+            color="default"
+            isDisabled={bgImageUploading || bgImage === DEFAULT_DARK_BG}
+            variant="flat"
+            onPress={() => handleConfigChange("app_bg_image", DEFAULT_DARK_BG)}
+          >
+            深色纯色
+          </Button>
           {bgImage && (
             <Button
               color="danger"
@@ -691,6 +722,54 @@ export default function ConfigPage() {
             >
               恢复默认
             </Button>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3 rounded-xl border border-divider/70 bg-default-50/40 p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            {BACKGROUND_COLOR_PRESETS.map((preset) => {
+              const selected = bgImage === preset.value;
+
+              return (
+                <Button
+                  key={preset.value}
+                  className={selected ? "ring-2 ring-primary/60" : ""}
+                  color={selected ? "primary" : "default"}
+                  isDisabled={bgImageUploading}
+                  size="sm"
+                  variant={selected ? "solid" : "flat"}
+                  onPress={() => handleConfigChange("app_bg_image", preset.value)}
+                >
+                  {preset.label}
+                </Button>
+              );
+            })}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <label
+              className="flex items-center gap-3 text-sm text-default-600"
+              htmlFor="app-bg-color-picker"
+            >
+              <span>自定义纯色</span>
+              <input
+                id="app-bg-color-picker"
+                className="h-10 w-14 cursor-pointer rounded border border-divider bg-transparent p-1"
+                disabled={bgImageUploading}
+                type="color"
+                value={colorPickerValue}
+                onChange={(event) =>
+                  handleConfigChange("app_bg_image", event.target.value)
+                }
+              />
+            </label>
+            <span className="text-xs text-default-500">
+              当前值：{currentBgLabel}
+            </span>
+          </div>
+          {isSolidColor && !hasHexColorValue && (
+            <span className="text-xs text-warning-600 dark:text-warning-400">
+              当前纯色值不是十六进制颜色（例如 #ffffff），拾色器无法直接显示，重新选择颜色后会覆盖该值。
+            </span>
           )}
         </div>
 
