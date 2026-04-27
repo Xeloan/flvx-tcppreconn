@@ -73,6 +73,7 @@ interface ConfigItem {
 
 const BRAND_PREVIEW_KEYS = ["app_logo", "app_favicon"] as const;
 const DEFAULT_DARK_BG = "#0b1020";
+const HEX_COLOR_REGEX = /^#(?:[0-9a-fA-F]{3}){1,2}$/;
 
 type BrandPreviewKey = (typeof BRAND_PREVIEW_KEYS)[number];
 
@@ -657,7 +658,7 @@ export default function ConfigPage() {
     const isTheme = bgImage === "theme";
     const isSolidColor = bgImage && !isImage && !isTheme;
     const colorPickerValue =
-      isSolidColor && /^#(?:[0-9a-fA-F]{3}){1,2}$/.test(bgImage)
+      isSolidColor && HEX_COLOR_REGEX.test(bgImage)
         ? bgImage
         : DEFAULT_DARK_BG;
 
