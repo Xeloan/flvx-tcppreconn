@@ -164,7 +164,9 @@ func parseListenAddr(addr string) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	if host == "" || host == "0.0.0.0" || host == "::" {
+	if host == "" || host == "0.0.0.0" {
+		// Keep the legacy empty-host behavior mapped to IPv4 wildcard, but
+		// preserve an explicit "::" so dual-stack listeners stay IPv6-capable.
 		host = "0.0.0.0"
 	}
 	return host, port, nil
