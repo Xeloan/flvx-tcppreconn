@@ -72,6 +72,7 @@ interface ConfigItem {
 }
 
 const BRAND_PREVIEW_KEYS = ["app_logo", "app_favicon"] as const;
+const DEFAULT_DARK_BG = "#0b1020";
 
 type BrandPreviewKey = (typeof BRAND_PREVIEW_KEYS)[number];
 
@@ -82,7 +83,7 @@ const BRAND_FILE_ACCEPT = "image/png,image/jpeg,image/webp,image/svg+xml";
 const BACKGROUND_COLOR_PRESETS = [
   { label: "跟随主题", value: "theme" },
   { label: "浅色纯色", value: "#ffffff" },
-  { label: "深色纯色", value: "#0b1020" },
+  { label: "深色纯色", value: DEFAULT_DARK_BG },
 ] as const;
 
 const toBrandAssetKind = (key: BrandPreviewKey): BrandAssetKind => {
@@ -658,7 +659,7 @@ export default function ConfigPage() {
     const colorPickerValue =
       isSolidColor && /^#(?:[0-9a-fA-F]{3}){1,2}$/.test(bgImage)
         ? bgImage
-        : "#0b1020";
+        : DEFAULT_DARK_BG;
 
     return (
       <div className="flex flex-col gap-4 w-full">
@@ -696,9 +697,9 @@ export default function ConfigPage() {
           </Button>
           <Button
             color="default"
-            isDisabled={bgImageUploading || bgImage === "#0b1020"}
+            isDisabled={bgImageUploading || bgImage === DEFAULT_DARK_BG}
             variant="flat"
-            onPress={() => handleConfigChange("app_bg_image", "#0b1020")}
+            onPress={() => handleConfigChange("app_bg_image", DEFAULT_DARK_BG)}
           >
             深色纯色
           </Button>
@@ -735,9 +736,13 @@ export default function ConfigPage() {
             })}
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-3 text-sm text-default-600">
+            <label
+              className="flex items-center gap-3 text-sm text-default-600"
+              htmlFor="app-bg-color-picker"
+            >
               <span>自定义纯色</span>
               <input
+                id="app-bg-color-picker"
                 className="h-10 w-14 cursor-pointer rounded border border-divider bg-transparent p-1"
                 disabled={bgImageUploading}
                 type="color"
