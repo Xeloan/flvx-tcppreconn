@@ -79,6 +79,11 @@ const isBrandPreviewKey = (key: string): key is BrandPreviewKey =>
   BRAND_PREVIEW_KEYS.includes(key as BrandPreviewKey);
 
 const BRAND_FILE_ACCEPT = "image/png,image/jpeg,image/webp,image/svg+xml";
+const BACKGROUND_COLOR_PRESETS = [
+  { label: "跟随主题", value: "theme" },
+  { label: "浅色纯色", value: "#ffffff" },
+  { label: "深色纯色", value: "#0b1020" },
+] as const;
 
 const toBrandAssetKind = (key: BrandPreviewKey): BrandAssetKind => {
   return key === "app_logo" ? "logo" : "favicon";
@@ -217,6 +222,7 @@ const getInitialConfigs = (): Record<string, string> => {
     "panel_domain",
     "app_logo",
     "app_favicon",
+    "app_bg_image",
     "github_proxy_enabled",
     "github_proxy_url",
   ];
@@ -466,7 +472,9 @@ export default function ConfigPage() {
 
         if (
           changedKeys.some((key) =>
-            ["app_name", "app_logo", "app_favicon"].includes(key),
+            ["app_name", "app_logo", "app_favicon", "app_bg_image"].includes(
+              key,
+            ),
           )
         ) {
           await updateSiteConfig(configs);
@@ -647,6 +655,10 @@ export default function ConfigPage() {
       bgImage.startsWith("blob:");
     const isTheme = bgImage === "theme";
     const isSolidColor = bgImage && !isImage && !isTheme;
+    const colorPickerValue =
+      isSolidColor && /^#(?:[0-9a-fA-F]{3}){1,2}$/.test(bgImage)
+        ? bgImage
+        : "#0b1020";
 
     return (
       <div className="flex flex-col gap-4 w-full">
@@ -682,6 +694,14 @@ export default function ConfigPage() {
           >
             白色纯色
           </Button>
+          <Button
+            color="default"
+            isDisabled={bgImageUploading || bgImage === "#0b1020"}
+            variant="flat"
+            onPress={() => handleConfigChange("app_bg_image", "#0b1020")}
+          >
+            深色纯色
+          </Button>
           {bgImage && (
             <Button
               color="danger"
@@ -692,6 +712,45 @@ export default function ConfigPage() {
               恢复默认
             </Button>
           )}
+        </div>
+
+        <div className="flex flex-col gap-3 rounded-xl border border-divider/70 bg-default-50/40 p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            {BACKGROUND_COLOR_PRESETS.map((preset) => {
+              const selected = bgImage === preset.value;
+
+              return (
+                <Button
+                  key={preset.value}
+                  className={selected ? "ring-2 ring-primary/60" : ""}
+                  color={selected ? "primary" : "default"}
+                  isDisabled={bgImageUploading}
+                  size="sm"
+                  variant={selected ? "solid" : "flat"}
+                  onPress={() => handleConfigChange("app_bg_image", preset.value)}
+                >
+                  {preset.label}
+                </Button>
+              );
+            })}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-3 text-sm text-default-600">
+              <span>自定义纯色</span>
+              <input
+                className="h-10 w-14 cursor-pointer rounded border border-divider bg-transparent p-1"
+                disabled={bgImageUploading}
+                type="color"
+                value={colorPickerValue}
+                onChange={(event) =>
+                  handleConfigChange("app_bg_image", event.target.value)
+                }
+              />
+            </label>
+            <span className="text-xs text-default-500">
+              当前值：{bgImage || "默认背景"}
+            </span>
+          </div>
         </div>
 
         {bgImage && isImage && (

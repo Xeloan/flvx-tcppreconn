@@ -161,9 +161,9 @@ export const SettingsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-black">
+    <div className="bg-mesh-gradient min-h-screen">
       {/* 顶部导航 */}
-      <div className="bg-white dark:bg-black border-b border-gray-200 dark:border-gray-700">
+      <div className="bg-background/85 dark:bg-background/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center gap-3">
             <Button

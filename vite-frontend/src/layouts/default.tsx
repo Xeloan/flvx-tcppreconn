@@ -6,9 +6,9 @@ export default function DefaultLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative flex flex-col min-h-screen bg-white dark:bg-black">
+    <div className="bg-mesh-gradient relative flex min-h-screen flex-col">
       <Navbar />
-      <main className="container mx-auto max-w-7xl px-4 sm:px-6 flex-grow pt-4 sm:pt-16">
+      <main className="container mx-auto max-w-7xl flex-grow px-4 pt-4 sm:px-6 sm:pt-16">
         {children}
       </main>
     </div>
