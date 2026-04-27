@@ -659,13 +659,17 @@ export default function ConfigPage() {
     const isSolidColor = bgImage && !isImage && !isTheme;
     const hasHexColorValue = isSolidColor && HEX_COLOR_PATTERN.test(bgImage);
     const colorPickerValue = hasHexColorValue ? bgImage : DEFAULT_DARK_BG;
-    const currentBgLabel = !bgImage
-      ? "默认背景"
-      : isTheme
-        ? "跟随主题"
-        : isImage
-          ? "自定义图片"
-          : bgImage;
+    let currentBgLabel = "默认背景";
+
+    if (bgImage) {
+      if (isTheme) {
+        currentBgLabel = "跟随主题";
+      } else if (isImage) {
+        currentBgLabel = "自定义图片";
+      } else {
+        currentBgLabel = bgImage;
+      }
+    }
 
     return (
       <div className="flex flex-col gap-4 w-full">
@@ -764,7 +768,7 @@ export default function ConfigPage() {
           </div>
           {isSolidColor && !hasHexColorValue && (
             <span className="text-xs text-warning-600 dark:text-warning-400">
-              当前纯色值不支持拾色器显示，重新选择颜色后会覆盖该值。
+              当前纯色值不是十六进制颜色（例如 #ffffff），拾色器无法直接显示，重新选择颜色后会覆盖该值。
             </span>
           )}
         </div>
